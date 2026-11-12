@@ -166,3 +166,33 @@ dashboard goes quiet, check the Actions tab first.
 
 Running `npm run dev` locally is still useful for design work — it renders and
 serves on the LAN without touching the deployment.
+
+### If the dashboard stops updating
+
+Check the Actions tab first — the schedule is the weakest link in this setup.
+
+**Known issue, unresolved as of first deploy.** In the first 80 minutes after
+this repo was created, GitHub delivered **no scheduled runs at all** — not late,
+never. Eight-plus slots were missed across two different cron expressions, while
+push- and dispatch-triggered runs on the same workflow succeeded immediately.
+
+Ruled out: the workflow is on the default branch, the API reports
+`state=active`, the repo is not a fork, and the YAML is valid. The configuration
+is correct; GitHub's scheduler simply was not firing for a new repository.
+
+Things to try, in order:
+
+1. **Wait.** New repos often wait before the scheduler picks them up, and
+   schedule delivery is best-effort on every plan. This may resolve itself.
+2. **`gh workflow run render.yml`** forces a render immediately, any time.
+3. **Move the trigger off GitHub.** A Cloudflare Worker cron calling
+   `workflow_dispatch` is reliable and keeps rendering free on Actions; it needs
+   a GitHub token with `actions:write` as a Worker secret. A launchd job on a Mac
+   running `gh workflow run` works with existing auth but only while awake.
+
+Cron is deliberately set to `7,22,37,52` rather than `*/15`: GitHub's docs state
+schedule delivery degrades at the start of every hour, and `*/15` lands on the
+four most contended slots.
+
+Whatever happens here, the device never lies about it — the plugin reads
+`rendered_at` from the manifest and badges anything older than 30 minutes.
