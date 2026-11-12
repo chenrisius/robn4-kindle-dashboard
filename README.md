@@ -133,3 +133,35 @@ scheduler on a server, so no cron is needed there either.
 **This only works while the Mac is awake and on the same network.** Making the
 dashboard work unattended is the one phase still outstanding — see DESIGN.md §4
 for the three hosting options.
+
+---
+
+## Deployed
+
+Live at **https://chenrisius.github.io/robn4-kindle-dashboard/**
+
+`.github/workflows/render.yml` runs `render.js` every 15 minutes and publishes
+`out/` to GitHub Pages. No server, no secrets — the worker is a public
+unauthenticated endpoint and nothing on the dashboard is private.
+
+| | |
+|---|---|
+| `dashboard.json` | ~215 B manifest the device polls |
+| `dashboard.png` | 1072×1448, 16-grey, ~70 KB |
+
+Two behaviours worth knowing:
+
+- **The schedule is best-effort.** GitHub delays cron under load; 5–20 minutes
+  late is normal. The device's staleness badge reports that honestly rather than
+  hiding it.
+- **It fails closed.** If the worker is unreachable, `render.js` exits non-zero,
+  the job fails, and the *previous* deployment stays live. Pages also sets
+  `cache-control: max-age=600`, so the device can see a manifest up to ten
+  minutes behind the newest render — still well inside the 30-minute badge
+  threshold.
+
+Scheduled workflows are disabled after 60 days of no repository activity. If the
+dashboard goes quiet, check the Actions tab first.
+
+Running `npm run dev` locally is still useful for design work — it renders and
+serves on the LAN without touching the deployment.

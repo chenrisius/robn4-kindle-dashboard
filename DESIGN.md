@@ -265,7 +265,7 @@ Stale data clearly labelled beats no data; both beat wrong data shown as current
 | 1 | Template parameterised from worker JSON; fonts self-hosted | **done** |
 | 2 | Grayscale pass: 16-level palette, no dither (225 KB -> 68 KB) | **done** |
 | 2b | Wind forecast (block strip); UV/AQI demoted to the strip; render-error guard | **done** |
-| 3 | GH Actions cron + Pages publish | next |
+| 3 | GH Actions cron + Pages publish | **done — live** |
 | 4 | KOReader plugin: fetch, cache, full refresh, staleness badge | **done — ran clean on hardware** |
 | 5 | On-glass tuning: contrast, hatch pitch, type sizes | **done — hatch and type held at 300ppi; chart replaced by blocks** |
 

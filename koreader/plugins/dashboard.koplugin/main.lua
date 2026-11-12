@@ -46,7 +46,9 @@ local https = require("ssl.https")
 local ltn12 = require("ltn12")
 
 local DEFAULTS = {
-    base_url     = "",     -- directory holding dashboard.json + dashboard.png
+    -- Published by .github/workflows/render.yml every 15 minutes.
+    -- A saved setting overrides this, so an existing install keeps its own URL.
+    base_url     = "https://chenrisius.github.io/robn4-kindle-dashboard",
     min_interval = 600,    -- never hit the network more often than this (s)
     stale_after  = 1800,   -- draw the staleness badge past this age (s)
 }
