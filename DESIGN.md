@@ -572,3 +572,44 @@ with the `concurrency` group making a duplicate render harmless on the rare
 occasion it does fire. The launchd plist stays too, uninstalled, as a one-command bridge
 that needs no credential — useful precisely when the token is the thing that
 broke.
+
+**Measured, after the switch.** Cloudflare fired its first slot one second late:
+
+| | |
+|---|---|
+| cron slot | 14:30:07Z |
+| Worker invoked | 14:30:08Z (+1.0 s) |
+| GitHub run created | 14:45:18Z (next slot, after a token fix) |
+| published | 14:45:26Z |
+
+Against GitHub's one delivery in forty-six, that is the whole argument. The
+15:00 slot is not an improvement on the 14:30 slot — it is the point: a clock
+that is boring is a clock that works.
+
+**Two things went wrong in the setup, and both are worth recording because
+neither was a code fault.**
+
+The first was mine to own: the token was stored as the secret *name* rather than
+its value. Secret names are not secret — they appear in `wrangler secret list`,
+in deploy output and in the dashboard — so the token had to be revoked and
+replaced. The cause was ergonomic. A copyable one-liner ending in
+`secret put GITHUB_TOKEN` invites pasting the token onto the end of it. The fix
+is to remove the choice: `npm run secret` hardcodes the name, so the only thing
+left to type is the hidden prompted value.
+
+The second was a permission, and the useful part is how cheaply it localised.
+`403 Resource not accessible by personal access token` means the token
+authenticated and was then refused, which is a different fault from `401` (bad
+token) and `404` (wrong repo) — one glance, no guessing. The underlying trap:
+choosing *Public Repositories (read-only)* for Repository access grants
+read-only no matter what the Permissions section then says.
+
+**And one design idea that did not survive contact.** The health page reports
+`token_bound`, which was true throughout the 403 and therefore told nobody
+anything. The obvious fix — probe the token with a cheap authenticated read —
+is worse than nothing: on a *public* repo even a read-only token passes such a
+read, so the page would have shown a green light on a chain that could not
+dispatch. There is no introspection endpoint for a fine-grained token's
+permissions, so the only honest test of "can this token dispatch" is
+dispatching. A health page can report the last *observed* dispatch outcome; it
+cannot predict the next one. Reporting history beats asserting capability.

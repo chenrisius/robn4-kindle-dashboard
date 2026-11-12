@@ -194,11 +194,22 @@ staleness badge says the same thing from the device side.
 gh run list --repo chenrisius/robn4-kindle-dashboard --limit 10
 ```
 
-All `workflow_dispatch`, 15 minutes apart — good. Nothing recent — the Worker
-is not reaching GitHub, so watch a live tick with `cd cron && npx wrangler tail`.
-`dispatch failed 401` means the token expired; re-run `npx wrangler secret put
-GITHUB_TOKEN` with a fresh one (no redeploy needed). `403` means the token is
-missing **Actions: Read and write**.
+All `workflow_dispatch`, 15 minutes apart — good. Nothing recent — watch a live
+tick with `cd cron && npx wrangler tail`, which separates "the trigger never
+fired" from "the trigger fired and the API call failed". The status code then
+localises the fault exactly:
+
+| Code | Cause | Fix |
+|---|---|---|
+| `401` | token expired or revoked | new token, then `cd cron && npm run secret` |
+| `403` | authenticates, but lacks `Actions: write` — usually *Public Repositories (read-only)* was picked for Repository access | edit the token in place; nothing to re-store |
+| `404` | wrong repo, or `WORKFLOW_FILE` names no file in `.github/workflows/` | fix `wrangler.toml`, redeploy |
+| nothing logged | Cloudflare never invoked the Worker | check the cron registered |
+
+Only `404` needs a redeploy: secrets bind at runtime, and editing a token's
+permissions does not change its value. Observed on first setup: a cron tick
+reaches the Worker about **1 second** after its slot, so if the tail is silent
+15 seconds past the quarter-hour, the trigger is the problem, not the token.
 
 **3. Are the runs failing rather than missing?** Then the render broke, not the
 clock — read the failing step in the Actions tab. `render.js` names what went

@@ -60,6 +60,11 @@ possibly be. In GitHub → Settings → Developer settings →
 | Repository permissions | **Actions: Read and write** — and nothing else |
 | Expiration | your call; see *When it expires* below |
 
+Do not pick *Public Repositories (read-only)* at the Repository access step.
+It grants read-only regardless of what you then set under Permissions, and the
+failure surfaces only at the first cron tick, as
+`403 Resource not accessible by personal access token`.
+
 `Metadata: Read-only` is added automatically and cannot be removed. That is the
 whole grant: it can start a workflow in one repository and do nothing else. Not
 a classic token — a classic `repo` token would have write access to every
