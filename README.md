@@ -157,8 +157,9 @@ Published files:
 | `dashboard.png` | 1072×1448, 16-grey, ~70 KB |
 
 **Why the clock is on Cloudflare.** The first deployment relied on GitHub's own
-`schedule` event and it delivered **nothing** — 0 of ~13 slots across two cron
-expressions, while all 6 pushes and all 4 dispatches ran in seconds. GitHub
+`schedule` event, which delivered **1 of ~46 slots over 11.6 hours** — a 2%
+delivery rate, and that one fired three minutes off its cron time. All 7 pushes
+and all 4 dispatches ran in seconds. GitHub
 documents `schedule` as best-effort with no delivery guarantee on any plan, so
 this was within spec and simply unusable for a dashboard, where the schedule
 *is* the product. The render stayed on Actions; only the trigger moved.
@@ -210,8 +211,9 @@ gh workflow run render.yml --repo chenrisius/robn4-kindle-dashboard
 ```
 
 GitHub's `schedule` block is still in the workflow as a dormant fallback. It has
-never fired. If it ever starts, the `concurrency` group queues the duplicate
-instead of racing it, so an extra render is harmless.
+fired once in 11.6 hours, so treat it as noise rather than cover. The
+`concurrency` group queues a duplicate render instead of racing it, so the
+overlap is harmless.
 
 Whatever happens anywhere in this chain, the device never lies about it — the
 plugin reads `rendered_at` from the manifest and badges anything older than 30

@@ -3,18 +3,18 @@ name: Render dashboard
 on:
   # PRIMARY TRIGGER: a Cloudflare Worker cron (see cron/), which calls
   # workflow_dispatch below every 15 minutes. GitHub says plainly that the
-  # schedule event is best-effort, and on this repo it proved worse than
-  # that: 0 of ~13 slots delivered across two cron expressions, while every
-  # push and dispatch ran in seconds. The clock had to move off GitHub.
+  # schedule event is best-effort, and on this repo that meant 1 of ~46 slots
+  # delivered over 11.6 hours (2%), while every push and dispatch ran in
+  # seconds. The clock had to move off GitHub.
   workflow_dispatch:
 
   push:
     branches: [main]
 
   schedule:
-    # Kept as a dormant fallback, not relied on. If GitHub ever starts
-    # delivering these, the concurrency group below queues the duplicate
-    # instead of racing it, so an extra render is harmless.
+    # Kept as a dormant fallback, not relied on: it has delivered once. The
+    # concurrency group below queues a duplicate instead of racing it, so the
+    # occasional overlap is harmless.
     - cron: '7,22,37,52 * * * *'
 
 permissions:

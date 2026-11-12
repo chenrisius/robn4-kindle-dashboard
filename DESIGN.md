@@ -512,18 +512,20 @@ honestly reporting its age. The tally after 3h20m:
 
 | Trigger | Fired |
 |---|---|
-| `push` | 6 of 6 |
+| `push` | 7 of 7 |
 | `workflow_dispatch` | 4 of 4 |
-| `schedule` | **0 of ~13** |
+| `schedule` | **1 of ~46** |
 
-Ten for ten on everything that wasn't the scheduler. Zero for thirteen on the
-scheduler, across two different cron expressions.
+Eleven for eleven on everything that wasn't the scheduler. One for forty-six on
+the scheduler, across two cron expressions and 11.6 hours — and that single
+delivery landed three minutes off its slot. A 2% delivery rate is not a slow
+scheduler; it is an absent one that occasionally remembers.
 
 **What it wasn't.** Workflow on the default branch, API reporting
 `state=active`, not a fork, valid YAML, no 60-day inactivity disable. The usual
 suspects were all cleared. Offsetting cron to `7,22,37,52` to dodge the
 top-of-hour stampede — the documented mitigation — changed nothing, because the
-runs were not being delayed. They were not being created at all.
+runs were not being delayed. Forty-five of forty-six were never created.
 
 **The reasoning error.** GitHub's docs say `schedule` "can be delayed during
 periods of high loads" and guarantee no delivery on any plan. That was read as
@@ -566,7 +568,7 @@ the truth about what it was showing, which is why the problem was diagnosable at
 all rather than a dashboard quietly lying about the tide.
 
 **What stayed.** GitHub's `schedule` block is still in the workflow, dormant,
-with the `concurrency` group making a duplicate render harmless if it ever
-starts firing. The launchd plist stays too, uninstalled, as a one-command bridge
+with the `concurrency` group making a duplicate render harmless on the rare
+occasion it does fire. The launchd plist stays too, uninstalled, as a one-command bridge
 that needs no credential — useful precisely when the token is the thing that
 broke.

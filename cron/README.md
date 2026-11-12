@@ -9,14 +9,16 @@ The render itself runs fine on GitHub Actions. What never worked was GitHub's
 
 | Trigger | Fired |
 |---|---|
-| `push` | 6 of 6 |
+| `push` | 7 of 7 |
 | `workflow_dispatch` | 4 of 4 |
-| `schedule` | **0 of ~13** |
+| `schedule` | **1 of ~46** |
 
-Two different cron expressions, 3h20m, zero deliveries — while everything that
+Measured over 11.6 hours. One slot in forty-six is a 2% delivery rate, and the
+one that landed was three minutes off its cron time — while everything that
 wasn't the scheduler ran in seconds. GitHub documents `schedule` as best-effort
 and makes no delivery guarantee on any plan, so this is within spec; it is just
-useless for a dashboard, where the schedule *is* the product.
+useless for a dashboard, where the schedule *is* the product. An hourly digest
+could live with 2%. A 15-minute dashboard cannot.
 
 So the clock moved to Cloudflare, which does deliver cron triggers. Rendering
 and hosting stay on GitHub. This Worker's only job is to say "now".
