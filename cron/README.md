@@ -68,11 +68,22 @@ repository you own.
 ### 4. Store it as a secret
 
 ```bash
-cd cron && npx wrangler secret put GITHUB_TOKEN
+cd cron && npm run secret
 ```
 
-Paste the token at the prompt. It goes straight to Cloudflare's secret store —
-not into this repo, not into `wrangler.toml`, not into your shell history.
+Use the npm script, not `wrangler secret put` typed by hand. It hardcodes the
+name, so there is nothing to mistype — and the first attempt at this stored the
+**token as the secret name**, which is worse than it sounds: secret *names* are
+not secret. They appear in `wrangler secret list`, in deploy output and in the
+Cloudflare dashboard. That token had to be revoked and replaced.
+
+Wait for `Enter a secret value:` and paste it *there*. The input is hidden, the
+value goes straight to Cloudflare's secret store, and nothing lands in this
+repo, in `wrangler.toml` or in your shell history.
+
+Verify with `npx wrangler secret list`: it must print exactly one name,
+`GITHUB_TOKEN`. If it prints anything starting `github_pat_`, the token leaked
+into the name — revoke it and start over.
 
 ### 5. Deploy
 
