@@ -108,12 +108,28 @@ On the device, `koreader/crash.log` carries the plugin's `logger` output —
 manifest results, download sizes, and failures. It is the only debugging channel
 a Kindle gives you.
 
-**The plugin has not been run on hardware.** It parses cleanly under both
-grammars and every referenced module resolves, but KOReader's widget and
-`NetworkMgr` APIs drift between releases, so expect to fix one or two calls on
-first run. The likely candidates are `key_events` (format changed across
-versions), `NetworkMgr:turnOffWifi()`, and the exact `ImageWidget` scaling
-behaviour.
+**Measured on hardware.** Running on a Paperwhite 10 since 11 Nov 2026. What
+`crash.log` recorded over the first day:
+
+| Count | Line |
+|---|---|
+| 10 | `new render` followed by `image cached` |
+| 10 | `never got online; refresh abandoned` |
+| 1 | `manifest fetch failed: HTTP Network is unreachable` |
+
+None of the API drift this section used to predict materialised: `key_events`,
+`NetworkMgr:turnOffWifi()` and `ImageWidget` scaling all worked as written. The
+one real drift was in `_meta.lua` — PluginLoader now warns that a `name` field
+`is deprecated and will be ignored`, so that field is gone and the directory
+name is used instead. (The `name` inside main.lua's `WidgetContainer:extend{}`
+is a different thing and is still required.)
+
+The remaining rough edge is wifi, not KOReader. Roughly half of all refresh
+attempts log `never got online`: the radio does not associate before the plugin
+gives up, so a refresh often needs a second tap. It degrades the way it was
+designed to — the cached image still draws immediately and the staleness badge
+reports its true age, so a failed refresh shows an honestly-labelled old
+dashboard rather than nothing.
 
 ---
 
