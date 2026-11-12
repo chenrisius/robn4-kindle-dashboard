@@ -10,7 +10,7 @@
  * Failure policy: if anything upstream breaks we exit non-zero WITHOUT touching
  * the existing PNG. A stale dashboard that says so beats a blank or broken one.
  */
-import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, renameSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, renameSync, statSync, copyFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
@@ -147,6 +147,12 @@ async function main() {
   };
   const manifestPath = OUT.replace(/\.png$/, '') + '.json';
   writeFileSync(manifestPath, JSON.stringify(manifest));
+
+  // Viewer page, so the deployed root is something to look at rather than a 404.
+  // Static and copied verbatim: it reads the manifest client-side, so it never
+  // needs regenerating and can't go stale against the image beside it.
+  const viewer = join(HERE, 'web', 'index.html');
+  if (existsSync(viewer)) copyFileSync(viewer, join(dirname(OUT), 'index.html'));
 
   console.log(`rendered: ${OUT}`);
   console.log(`  manifest: ${manifestPath} (${statSync(manifestPath).size} B)`);

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ROBN4 Dashboard</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --line:#2a313a;
+    --text:#e6edf3; --dim:#8b949e; --ok:#3fb950; --warn:#d29922; --bad:#f85149;
+    --sans:ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);
+       min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       padding:24px 16px 48px;gap:18px}
+  header{width:100%;max-width:620px;display:flex;justify-content:space-between;
+         align-items:baseline;gap:12px;flex-wrap:wrap}
+  h1{font-size:15px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+  .meta{font-family:var(--mono);font-size:13px;color:var(--dim);text-align:right}
+  .shot{width:100%;max-width:620px;background:#fff;border:1px solid var(--line);
+        border-radius:10px;overflow:hidden;line-height:0;
+        box-shadow:0 10px 36px rgba(0,0,0,.45)}
+  .shot img{width:100%;height:auto;display:block}
+  .bar{width:100%;max-width:620px;display:flex;gap:10px;flex-wrap:wrap;
+       font-family:var(--mono);font-size:13px;color:var(--dim)}
+  .pill{border:1px solid var(--line);background:var(--panel);
+        border-radius:999px;padding:5px 12px;white-space:nowrap}
+  .pill b{color:var(--text);font-weight:600}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;
+       margin-right:7px;vertical-align:middle;background:var(--dim)}
+  .fresh .dot{background:var(--ok)} .aging .dot{background:var(--warn)} .stale .dot{background:var(--bad)}
+  footer{width:100%;max-width:620px;font-size:12px;color:var(--dim);line-height:1.7}
+  a{color:#58a6ff;text-decoration:none} a:hover{text-decoration:underline}
+  @media (prefers-color-scheme:light){
+    :root{--bg:#f6f8fa;--panel:#fff;--line:#d0d7de;--text:#1f2328;--dim:#59636e}
+    .shot{box-shadow:0 8px 28px rgba(31,35,40,.12)}
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>ROBN4 Dashboard</h1>
+    <div class="meta" id="meta">loading…</div>
+  </header>
+
+  <div class="shot"><img id="shot" alt="Kindle dashboard: New York Harbour conditions, tides, sun and moon"></div>
+
+  <div class="bar" id="bar"></div>
+
+  <footer>
+    Rendered every 15 minutes by
+    <a href="https://github.com/chenrisius/robn4-kindle-dashboard">GitHub Actions</a>
+    and displayed on a jailbroken Kindle Paperwhite via KOReader.
+    1072&times;1448, 16 grey levels.
+    <br>
+    Raw: <a href="dashboard.png">dashboard.png</a> &middot;
+    <a href="dashboard.json">dashboard.json</a>
+  </footer>
+
+<script>
+const $ = id => document.getElementById(id);
+
+function ago(sec){
+  if (sec < 90) return 'just now';
+  const m = Math.round(sec / 60);
+  if (m < 60) return m + ' min ago';
+  return Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2,'0') + 'm ago';
+}
+
+async function load(){
+  // cache-bust: Pages serves max-age=600, which would otherwise pin this page
+  // to a manifest up to ten minutes behind the newest render
+  const bust = '?t=' + Date.now();
+  try {
+    const m = await (await fetch('dashboard.json' + bust, {cache:'no-store'})).json();
+    $('shot').src = (m.image || 'dashboard.png') + bust;
+
+    const age = Math.max(0, Math.round(Date.now()/1000 - m.rendered_at));
+    const state = age < 1800 ? 'fresh' : (age < 5400 ? 'aging' : 'stale');
+    $('meta').textContent = new Date(m.rendered_at * 1000)
+      .toLocaleString([], {weekday:'short', hour:'2-digit', minute:'2-digit'});
+
+    $('bar').innerHTML =
+      `<span class="pill ${state}"><span class="dot"></span>${ago(age)}</span>` +
+      `<span class="pill"><b>${m.summary ?? '—'}</b></span>` +
+      `<span class="pill">feed <b>${m.feed_level ?? '—'}</b></span>` +
+      `<span class="pill">${Math.round((m.bytes ?? 0)/1024)} KB</span>` +
+      `<span class="pill">worker <b>${m.worker_version ?? '—'}</b></span>`;
+  } catch (e) {
+    $('meta').textContent = 'could not load manifest';
+    $('bar').innerHTML = `<span class="pill stale"><span class="dot"></span>${e}</span>`;
+  }
+}
+load();
+setInterval(load, 60000);
+</script>
+</body>
+</html>

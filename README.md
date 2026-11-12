@@ -146,6 +146,7 @@ unauthenticated endpoint and nothing on the dashboard is private.
 
 | | |
 |---|---|
+| `index.html` | viewer page — the dashboard plus render age and status |
 | `dashboard.json` | ~215 B manifest the device polls |
 | `dashboard.png` | 1072×1448, 16-grey, ~70 KB |
 
