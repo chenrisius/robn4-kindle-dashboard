@@ -196,3 +196,19 @@ four most contended slots.
 
 Whatever happens here, the device never lies about it — the plugin reads
 `rendered_at` from the manifest and badges anything older than 30 minutes.
+
+#### Stopgap: trigger from this Mac
+
+`tools/com.robn4.dashboard.plist` calls `gh workflow run` every 15 minutes using
+the `gh` auth already on the machine — no new credential, nothing stored.
+
+```bash
+cp tools/com.robn4.dashboard.plist ~/Library/LaunchAgents/
+launchctl load -w ~/Library/LaunchAgents/com.robn4.dashboard.plist
+```
+
+Remove it with `launchctl unload -w ~/Library/LaunchAgents/com.robn4.dashboard.plist`.
+
+It only fires while the Mac is awake, so it is a bridge rather than a fix — but
+a machine that is open most of the day keeps the dashboard fresher than a
+scheduler that never fires at all. Delete it once GitHub's cron starts working.

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Stopgap trigger while GitHub's scheduler refuses to fire.
+
+  Calls 'gh workflow run' every 15 minutes using the gh auth already on this
+  Mac, so it needs NO new credential. It only runs while the Mac is awake,
+  which is a real limitation - but a laptop that is open most of the day keeps
+  the dashboard fresher than a scheduler that never fires at all.
+
+  install:    launchctl load -w ~/Library/LaunchAgents/com.robn4.dashboard.plist
+  uninstall:  launchctl unload -w ~/Library/LaunchAgents/com.robn4.dashboard.plist
+  logs:       tail -f /tmp/robn4-trigger.log
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>              <string>com.robn4.dashboard</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/gh</string>
+    <string>workflow</string>
+    <string>run</string>
+    <string>render.yml</string>
+  </array>
+  <key>WorkingDirectory</key>   <string>/Users/chenri/Claude/Kindle</string>
+  <key>StartInterval</key>      <integer>900</integer>
+  <key>RunAtLoad</key>          <true/>
+  <key>StandardOutPath</key>    <string>/tmp/robn4-trigger.log</string>
+  <key>StandardErrorPath</key>  <string>/tmp/robn4-trigger.log</string>
+</dict>
+</plist>
