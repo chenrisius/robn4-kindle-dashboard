@@ -140,9 +140,15 @@ for the three hosting options.
 
 Live at **https://chenrisius.github.io/robn4-kindle-dashboard/**
 
-`.github/workflows/render.yml` runs `render.js` every 15 minutes and publishes
-`out/` to GitHub Pages. No server, no secrets — the worker is a public
-unauthenticated endpoint and nothing on the dashboard is private.
+Three pieces, each doing one thing:
+
+| Piece | Job |
+|---|---|
+| Cloudflare Worker cron (`cron/`) | says "now", every 15 minutes |
+| GitHub Actions (`.github/workflows/render.yml`) | renders and publishes `out/` |
+| GitHub Pages | serves it to the Kindle |
+
+Published files:
 
 | | |
 |---|---|
@@ -150,54 +156,68 @@ unauthenticated endpoint and nothing on the dashboard is private.
 | `dashboard.json` | ~215 B manifest the device polls |
 | `dashboard.png` | 1072×1448, 16-grey, ~70 KB |
 
-Two behaviours worth knowing:
+**Why the clock is on Cloudflare.** The first deployment relied on GitHub's own
+`schedule` event and it delivered **nothing** — 0 of ~13 slots across two cron
+expressions, while all 6 pushes and all 4 dispatches ran in seconds. GitHub
+documents `schedule` as best-effort with no delivery guarantee on any plan, so
+this was within spec and simply unusable for a dashboard, where the schedule
+*is* the product. The render stayed on Actions; only the trigger moved.
+Setup, token scope and verification: [`cron/README.md`](cron/README.md).
 
-- **The schedule is best-effort.** GitHub delays cron under load; 5–20 minutes
-  late is normal. The device's staleness badge reports that honestly rather than
-  hiding it.
-- **It fails closed.** If the worker is unreachable, `render.js` exits non-zero,
-  the job fails, and the *previous* deployment stays live. Pages also sets
-  `cache-control: max-age=600`, so the device can see a manifest up to ten
-  minutes behind the newest render — still well inside the 30-minute badge
-  threshold.
-
-Scheduled workflows are disabled after 60 days of no repository activity. If the
-dashboard goes quiet, check the Actions tab first.
+**It fails closed.** If the worker is unreachable, `render.js` exits non-zero,
+the job fails, and the *previous* deployment stays live — a stale dashboard that
+admits it beats a broken one. Pages also sets `cache-control: max-age=600`, so
+the device can see a manifest up to ten minutes behind the newest render, still
+well inside the 30-minute badge threshold.
 
 Running `npm run dev` locally is still useful for design work — it renders and
 serves on the LAN without touching the deployment.
 
 ### If the dashboard stops updating
 
-Check the Actions tab first — the schedule is the weakest link in this setup.
+Work down the chain. Each step is one command.
 
-**Known issue, unresolved as of first deploy.** In the first 80 minutes after
-this repo was created, GitHub delivered **no scheduled runs at all** — not late,
-never. Eight-plus slots were missed across two different cron expressions, while
-push- and dispatch-triggered runs on the same workflow succeeded immediately.
+**1. Is the published render actually old?** The Worker's health page answers
+this without a token and triggers nothing:
 
-Ruled out: the workflow is on the default branch, the API reports
-`state=active`, the repo is not a fork, and the YAML is valid. The configuration
-is correct; GitHub's scheduler simply was not firing for a new repository.
+```bash
+curl -s https://robn4-dashboard-cron.<your-subdomain>.workers.dev
+```
 
-Things to try, in order:
+`age_minutes` past ~35 means something is genuinely down. The Kindle's own
+staleness badge says the same thing from the device side.
 
-1. **Wait.** New repos often wait before the scheduler picks them up, and
-   schedule delivery is best-effort on every plan. This may resolve itself.
-2. **`gh workflow run render.yml`** forces a render immediately, any time.
-3. **Move the trigger off GitHub.** A Cloudflare Worker cron calling
-   `workflow_dispatch` is reliable and keeps rendering free on Actions; it needs
-   a GitHub token with `actions:write` as a Worker secret. A launchd job on a Mac
-   running `gh workflow run` works with existing auth but only while awake.
+**2. Is the cron firing?** A working trigger is a steady run of dispatches:
 
-Cron is deliberately set to `7,22,37,52` rather than `*/15`: GitHub's docs state
-schedule delivery degrades at the start of every hour, and `*/15` lands on the
-four most contended slots.
+```bash
+gh run list --repo chenrisius/robn4-kindle-dashboard --limit 10
+```
 
-Whatever happens here, the device never lies about it — the plugin reads
-`rendered_at` from the manifest and badges anything older than 30 minutes.
+All `workflow_dispatch`, 15 minutes apart — good. Nothing recent — the Worker
+is not reaching GitHub, so watch a live tick with `cd cron && npx wrangler tail`.
+`dispatch failed 401` means the token expired; re-run `npx wrangler secret put
+GITHUB_TOKEN` with a fresh one (no redeploy needed). `403` means the token is
+missing **Actions: Read and write**.
 
-#### Stopgap: trigger from this Mac
+**3. Are the runs failing rather than missing?** Then the render broke, not the
+clock — read the failing step in the Actions tab. `render.js` names what went
+wrong and refuses to publish a half-built page.
+
+**4. Force one by hand**, any time, from anywhere:
+
+```bash
+gh workflow run render.yml --repo chenrisius/robn4-kindle-dashboard
+```
+
+GitHub's `schedule` block is still in the workflow as a dormant fallback. It has
+never fired. If it ever starts, the `concurrency` group queues the duplicate
+instead of racing it, so an extra render is harmless.
+
+Whatever happens anywhere in this chain, the device never lies about it — the
+plugin reads `rendered_at` from the manifest and badges anything older than 30
+minutes with its real age.
+
+#### The other option: trigger from this Mac
 
 `tools/com.robn4.dashboard.plist` calls `gh workflow run` every 15 minutes using
 the `gh` auth already on the machine — no new credential, nothing stored.
@@ -209,6 +229,6 @@ launchctl load -w ~/Library/LaunchAgents/com.robn4.dashboard.plist
 
 Remove it with `launchctl unload -w ~/Library/LaunchAgents/com.robn4.dashboard.plist`.
 
-It only fires while the Mac is awake, so it is a bridge rather than a fix — but
-a machine that is open most of the day keeps the dashboard fresher than a
-scheduler that never fires at all. Delete it once GitHub's cron starts working.
+It only fires while the Mac is awake, which is why Cloudflare got the job. Kept
+as a belt-and-braces option: if the token lapses while you are away, loading
+this plist is a one-command bridge.

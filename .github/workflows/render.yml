@@ -1,23 +1,21 @@
 name: Render dashboard
 
 on:
-  schedule:
-    # Every 15 minutes, but deliberately OFF the quarter-hour.
-    #
-    # GitHub's own docs: "The schedule event can be delayed during periods of
-    # high loads... High load times include the start of every hour." A '*/15'
-    # cron fires at :00 :15 :30 :45 — the four most contended slots on the
-    # platform — and in practice the first runs were dropped entirely rather
-    # than merely delayed. Offsetting to :07 :22 :37 :52 lands between the
-    # stampedes.
-    #
-    # This is still best-effort. GitHub makes no delivery guarantee for
-    # scheduled workflows on any plan, which is why the device shows a
-    # staleness badge rather than trusting the cadence.
-    - cron: '7,22,37,52 * * * *'
+  # PRIMARY TRIGGER: a Cloudflare Worker cron (see cron/), which calls
+  # workflow_dispatch below every 15 minutes. GitHub says plainly that the
+  # schedule event is best-effort, and on this repo it proved worse than
+  # that: 0 of ~13 slots delivered across two cron expressions, while every
+  # push and dispatch ran in seconds. The clock had to move off GitHub.
   workflow_dispatch:
+
   push:
     branches: [main]
+
+  schedule:
+    # Kept as a dormant fallback, not relied on. If GitHub ever starts
+    # delivering these, the concurrency group below queues the duplicate
+    # instead of racing it, so an extra render is harmless.
+    - cron: '7,22,37,52 * * * *'
 
 permissions:
   contents: read

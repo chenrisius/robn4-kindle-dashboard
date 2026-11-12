@@ -1,0 +1,15 @@
+{
+  "name": "robn4-dashboard-cron",
+  "private": true,
+  "description": "Cloudflare Worker cron that fires the dashboard render workflow",
+  "scripts": {
+    "login": "wrangler login",
+    "secret": "wrangler secret put GITHUB_TOKEN",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail --format pretty",
+    "crons": "wrangler triggers deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.160.1"
+  }
+}

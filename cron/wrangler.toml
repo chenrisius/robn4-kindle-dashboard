@@ -1,0 +1,24 @@
+name = "robn4-dashboard-cron"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+
+# Cloudflare cron triggers are delivered on schedule, which is the entire
+# reason this Worker exists. On the quarter-hour is fine here: unlike GitHub,
+# Cloudflare does not drop the contended slots.
+[triggers]
+crons = ["*/15 * * * *"]
+
+[vars]
+GITHUB_REPO   = "chenrisius/robn4-kindle-dashboard"
+WORKFLOW_FILE = "render.yml"
+GIT_REF       = "main"
+DASHBOARD_URL = "https://chenrisius.github.io/robn4-kindle-dashboard"
+
+# GITHUB_TOKEN is NOT here. It is a secret, set once with
+#   wrangler secret put GITHUB_TOKEN
+# so the value lives in Cloudflare and never in this repo.
+
+# The health page is useful; observability costs nothing and makes a silent
+# failure visible in one request.
+[observability]
+enabled = true

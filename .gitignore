@@ -1,3 +1,5 @@
 node_modules/
 out/
 src/_render.html
+.wrangler/
+.dev.vars

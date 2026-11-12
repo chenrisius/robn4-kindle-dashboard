@@ -496,3 +496,77 @@ number survive — where the line chart simply became an illegible 44 px smear.
 Read across the live strip and the forecast tells itself: `4.7 4.3 2.7` with
 thin chips overnight, climbing through `9.0 9.1 9.3`, then `14.0 14.7` under
 solid black chips at `30` and `32` by evening.
+
+---
+
+## 19. Moving the clock off GitHub
+
+The design assumed the hosting choice could own the schedule too. That was the
+one wrong call in the deployment, and it was wrong in a way worth recording,
+because the symptom looked exactly like the failure mode the whole staleness
+system was built to expose.
+
+**What happened.** The dashboard rendered perfectly and then stopped updating.
+Not broken — frozen, with a correct-looking page from 20:39 and a device badge
+honestly reporting its age. The tally after 3h20m:
+
+| Trigger | Fired |
+|---|---|
+| `push` | 6 of 6 |
+| `workflow_dispatch` | 4 of 4 |
+| `schedule` | **0 of ~13** |
+
+Ten for ten on everything that wasn't the scheduler. Zero for thirteen on the
+scheduler, across two different cron expressions.
+
+**What it wasn't.** Workflow on the default branch, API reporting
+`state=active`, not a fork, valid YAML, no 60-day inactivity disable. The usual
+suspects were all cleared. Offsetting cron to `7,22,37,52` to dodge the
+top-of-hour stampede — the documented mitigation — changed nothing, because the
+runs were not being delayed. They were not being created at all.
+
+**The reasoning error.** GitHub's docs say `schedule` "can be delayed during
+periods of high loads" and guarantee no delivery on any plan. That was read as
+a latency caveat and mitigated as one, with a staleness badge to tell the truth
+about late renders. But for a dashboard the schedule is not a supporting detail
+— it *is* the product. A renderer that produces a perfect PNG on demand and a
+device that honestly reports a six-hour-old image still add up to a dashboard
+nobody wants. Best-effort was the wrong reliability tier for the one component
+that had to work unattended, and no amount of honesty downstream fixes that.
+
+**The fix: separate the clock from the renderer.**
+
+```
+Cloudflare cron  ->  workflow_dispatch  ->  Actions renders  ->  Pages  ->  Kindle
+   (says "now")        (the one API call)     (unchanged)
+```
+
+Cloudflare delivers cron triggers; `workflow_dispatch` fired 4 of 4. Compose the
+two and the dashboard runs on the paths that were observed to work, rather than
+on the one that was not. Everything downstream is untouched: same `render.js`,
+same workflow, same Pages deployment, same plugin.
+
+**What it costs.** One credential, where the project previously had none — a
+GitHub fine-grained token, scoped to Actions: write on this single repository,
+stored as a Worker secret. That is the honest price, and the reason GitHub's own
+scheduler was given every chance first. The scope is as small as the grant can
+be made: that token can start a workflow in one repo and do nothing else. Not a
+classic `repo` token, which would carry write access to everything.
+
+**Three ways the new single point of failure announces itself.** A token has a
+finite life, so the day it expires is a scheduled outage:
+
+- the device badges the image with its real age — the failure the user sees;
+- the Worker's health page flips `healthy: false`, from the public manifest and
+  no token at all;
+- `wrangler tail` prints `dispatch failed 401`, naming the cause.
+
+The first one is what mattered. Throughout the outage the Kindle kept telling
+the truth about what it was showing, which is why the problem was diagnosable at
+all rather than a dashboard quietly lying about the tide.
+
+**What stayed.** GitHub's `schedule` block is still in the workflow, dormant,
+with the `concurrency` group making a duplicate render harmless if it ever
+starts firing. The launchd plist stays too, uninstalled, as a one-command bridge
+that needs no credential — useful precisely when the token is the thing that
+broke.
