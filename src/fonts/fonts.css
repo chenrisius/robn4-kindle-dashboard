@@ -1,0 +1,8 @@
+/* Self-hosted so the renderer never depends on Google Fonts being reachable. */
+@font-face{font-family:"Inter";font-style:normal;font-weight:300;font-display:block;src:url("./inter-latin-300-normal.woff2") format("woff2")}
+@font-face{font-family:"Inter";font-style:normal;font-weight:400;font-display:block;src:url("./inter-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Inter";font-style:normal;font-weight:500;font-display:block;src:url("./inter-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Inter";font-style:normal;font-weight:600;font-display:block;src:url("./inter-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Literata";font-style:normal;font-weight:400;font-display:block;src:url("./literata-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Literata";font-style:normal;font-weight:500;font-display:block;src:url("./literata-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Literata";font-style:normal;font-weight:600;font-display:block;src:url("./literata-latin-600-normal.woff2") format("woff2")}

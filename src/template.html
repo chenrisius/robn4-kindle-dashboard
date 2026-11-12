@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ROBN4 Kindle Dashboard</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+  :root{
+    --paper:#FFFFFF; --ink:#000000; --ink-2:#3A3A3A; --rule:#9A9A9A;
+    --sans:"Inter",system-ui,sans-serif; --serif:"Literata",Georgia,serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#8d8d8d;font-family:var(--sans);display:flex;flex-direction:column;align-items:center;padding:24px 0}
+  body.shot{padding:0;background:#fff}
+
+  /* ===== DEVICE CANVAS : Kindle PW4, 1072 x 1448 @ 300ppi ===== */
+  .screen{
+    width:1072px;height:1448px;background:var(--paper);color:var(--ink);
+    padding:40px 44px 36px;display:flex;flex-direction:column;overflow:hidden;
+    -webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1;
+  }
+  .screen > div{overflow:hidden}
+
+  .rule-major{height:4px;background:var(--ink);margin:14px 0;flex:none}
+  .rule-minor{height:2px;background:var(--rule);margin:11px 0;flex:none}
+  .label{font-size:21px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+  .k{font-size:18px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+  .num{font-variant-numeric:tabular-nums}
+
+  /* hatch ramp — the grey-free scale.  More hatch = less light / worse air. */
+  .h0{background:#fff}
+  .h1{background:repeating-linear-gradient(45deg,#000 0 1.5px,#fff 1.5px 8px)}
+  .h2{background:repeating-linear-gradient(45deg,#000 0 3px,#fff 3px 7px)}
+  .h3{background:repeating-linear-gradient(45deg,#000 0 5px,#fff 5px 7px)}
+  .h4{background:#000}
+
+  /* ===== HEADER 150 ===== */
+  .header{height:150px;flex:none;display:flex;justify-content:space-between;align-items:flex-start}
+  .weekday{font-size:38px;font-weight:600;letter-spacing:.15em;line-height:1}
+  .datefull{font-family:var(--serif);font-size:52px;line-height:1.05;margin-top:9px}
+  .datemeta{font-size:23px;color:var(--ink-2);margin-top:10px}
+  .clock{font-size:116px;font-weight:300;line-height:.86;letter-spacing:-.02em;font-variant-numeric:tabular-nums;text-align:right}
+  .clocksub{font-size:19px;color:var(--ink-2);margin-top:9px;letter-spacing:.04em;text-align:right}
+
+  /* ===== ALERT (replaces the year strip when active) ===== */
+  .alert{height:34px;flex:none;background:var(--ink);color:var(--paper);display:none;
+         align-items:center;gap:14px;padding:0 14px;margin-bottom:10px}
+  .alert.on{display:flex}
+  .alert .t{font-size:19px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+  .alert .d{font-size:19px;font-family:var(--serif);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* ===== CONDITIONS 250 ===== */
+  .cond{height:250px;flex:none;display:flex;flex-direction:column}
+  .stationline{display:flex;justify-content:space-between;align-items:baseline;height:28px;flex:none}
+  .stationline .s{font-size:20px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+  .fresh{font-size:19px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;border:2px solid var(--ink);padding:1px 9px}
+  .fresh.stale{background:var(--ink);color:var(--paper)}
+  .cond-main{height:160px;flex:none;display:flex;align-items:center}
+  .cbox{flex:1;display:flex;align-items:center;gap:20px;min-width:0}
+  .cbox:first-child{flex:0 0 362px}
+  .cbox+.cbox{border-left:2px solid var(--rule);padding-left:30px}
+  .bignum{font-size:100px;font-weight:300;line-height:.8;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+  .unit{font-size:28px;font-weight:400;color:var(--ink-2);margin-left:-4px}
+  .cmeta{font-size:22px;color:var(--ink-2);line-height:1.5;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .cmeta b{color:var(--ink);font-weight:500}
+  .strip{height:62px;flex:none;border-top:2px solid var(--rule);display:flex;align-items:center}
+  .strip > div{display:flex;align-items:baseline;gap:10px;min-width:0}
+  .strip > div + div{border-left:2px solid var(--rule);padding-left:16px;margin-left:8px}
+  .strip .v{font-size:27px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .strip .x{font-size:17px;white-space:nowrap;color:var(--ink-2);font-variant-numeric:tabular-nums}
+
+  /* ===== SKY 200 ===== */
+  .sky{height:200px;flex:none;display:flex;flex-direction:column;justify-content:space-between}
+  .skytop{height:108px;display:flex;align-items:center}
+  .moon{width:452px;display:flex;align-items:center;gap:22px;padding-right:26px}
+  .moon .ph{font-family:var(--serif);font-size:27px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .moon .sub{font-size:22px;color:var(--ink-2);margin-top:3px;font-variant-numeric:tabular-nums}
+  .sungrid{flex:1;border-left:2px solid var(--rule);padding-left:28px;
+           display:grid;grid-template-columns:auto 1fr auto 1fr;gap:7px 14px;align-content:center;
+           font-variant-numeric:tabular-nums}
+  .sungrid .v{font-size:25px;text-align:right}
+  .band{position:relative;height:42px;background:var(--ink);border:2px solid var(--ink);flex:none}
+  .seg{position:absolute;top:0;bottom:0}
+  .seg.day{background:var(--paper)}
+  .seg.tw{background:repeating-linear-gradient(45deg,#000 0 2px,#fff 2px 6px)}
+  .nowmark{position:absolute;top:-7px;bottom:-7px;width:4px;background:var(--ink)}
+  .noonmark{position:absolute;top:0;width:2px;height:10px;background:var(--ink)}
+  .bandlabels{position:relative;height:24px;font-size:19px;color:var(--ink-2);font-variant-numeric:tabular-nums;flex:none}
+  .bandlabels span{position:absolute;top:3px;transform:translateX(-50%);white-space:nowrap}
+
+  /* ===== WIND FORECAST 134 (takes the old indices + year strip pixels) ===== */
+  .windfc{height:134px;flex:none;display:flex;flex-direction:column}
+  .alert.on ~ .windfc{height:90px}          /* an active alert buys its bar back from here */
+  .wfgrid{flex:1;min-height:0;display:flex;gap:6px;align-items:stretch}
+  .wfcol{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between}
+  .wfhr{font-size:19px;color:var(--ink-2);font-variant-numeric:tabular-nums;line-height:1}
+  .wfar{height:20px;flex:none;display:flex;align-items:center}
+  .wfkt{font-size:28px;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap}
+  /* The gust chip carries a NUMBER, so it cannot use the hatch ramp the moon and
+     daylight band use - text over a pattern is unreadable on e-ink. Intensity is
+     border weight and inversion instead: light (<F5), heavy (F5-F6), inverted (F7+). */
+  .wfgu{width:100%;text-align:center;font-size:19px;line-height:1.4;
+        border:2px solid var(--ink);font-variant-numeric:tabular-nums}
+  .wfgu.mid{border-width:4px;font-weight:600}
+  .wfgu.hi{background:var(--ink);color:var(--paper);font-weight:600;border-color:var(--ink)}
+  .wfempty{flex:1;display:flex;align-items:center;justify-content:center;
+           font-family:var(--serif);font-size:23px;color:var(--ink-2)}
+  /* Compressed by an active alert: the arrows go first, then everything tightens */
+  .alert.on ~ .windfc .wfar{display:none}
+  .alert.on ~ .windfc .wfhr{font-size:17px}
+  .alert.on ~ .windfc .wfkt{font-size:24px}
+  .alert.on ~ .windfc .wfgu{font-size:17px;line-height:1.3;border-width:2px}
+
+  /* ===== TIDE 290 ===== */
+  .tide{height:290px;flex:none;display:flex;flex-direction:column}
+  .zonehead{display:flex;justify-content:space-between;align-items:baseline;height:28px;flex:none}
+  .zonehead .r{font-size:20px;color:var(--ink-2);letter-spacing:.06em;font-variant-numeric:tabular-nums}
+  .tiderow{height:80px;flex:none;display:flex;align-items:center}
+  .tidenow{width:330px;display:flex;align-items:baseline;gap:14px}
+  .tidenow .v{font-size:76px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums}
+  .tidenow .u{font-size:26px;color:var(--ink-2)}
+  .tidenow .st{font-size:25px;font-family:var(--serif)}
+  .tidenext{flex:1;border-left:2px solid var(--rule);padding-left:28px;
+            display:grid;grid-template-columns:auto auto auto 1fr;gap:7px 18px;align-content:center;
+            font-variant-numeric:tabular-nums}
+  .tidenext .t{font-size:27px;font-weight:500}
+  .tidenext .h{font-size:27px}
+  .tidenext .c{font-size:21px;color:var(--ink-2)}
+  .tidecurve{height:134px;flex:none}
+  .tidecur{height:44px;flex:none;border-top:2px solid var(--rule);display:flex;align-items:center;gap:14px;
+           font-size:23px;font-variant-numeric:tabular-nums}
+  .tidecur .d{color:var(--ink-2)}
+
+  /* ===== MARINE 180 ===== */
+  .marine{height:180px;flex:none;display:flex;flex-direction:column}
+  .mrow{height:70px;flex:none;display:flex;align-items:flex-start;gap:16px;padding-top:7px}
+  .mrow+.mrow{border-top:2px solid var(--rule)}
+  .mname{width:132px;flex:none;font-size:21px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding-top:3px}
+  .chip{flex:none;font-size:21px;border:2px solid var(--ink);padding:2px 10px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .mtext{flex:1;font-family:var(--serif);font-size:23px;line-height:1.32;color:var(--ink-2);
+         display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+
+  /* ===== FOOTER 32 ===== */
+  .footer{margin-top:auto;height:32px;flex:none;display:flex;justify-content:space-between;align-items:center;white-space:nowrap;
+          font-size:19px;color:var(--ink-2);letter-spacing:.05em;font-variant-numeric:tabular-nums}
+  .fl{display:flex;align-items:center;gap:13px;flex:none}
+  .footer > div{flex:none}
+</style>
+</head>
+<body>
+<div class="screen">
+
+  <div class="header">
+    <div>
+      <div class="weekday" id="weekday"></div>
+      <div class="datefull" id="datefull"></div>
+      <div class="datemeta num" id="datemeta"></div>
+    </div>
+    <div>
+      <div class="clock" id="clock"></div>
+      <div class="clocksub num" id="clocksub"></div>
+    </div>
+  </div>
+
+  <div class="rule-major"></div>
+
+  <div class="alert" id="alert"><div class="t" id="alertT"></div><div class="d" id="alertD"></div></div>
+
+  <div class="cond">
+    <div class="stationline">
+      <div class="s" id="stationline"></div>
+      <div class="fresh" id="fresh"></div>
+    </div>
+    <div class="cond-main">
+      <div class="cbox">
+        <div><span class="bignum" id="temp"></span><span class="unit">&deg;F</span></div>
+        <div class="cmeta" id="tempmeta"></div>
+      </div>
+      <div class="cbox">
+        <svg width="78" height="78" viewBox="-50 -50 100 100" style="flex:none">
+          <circle r="46" fill="none" stroke="#9A9A9A" stroke-width="2"/>
+          <g id="windarrow"><path d="M0 -38 L13 2 L0 -8 L-13 2 Z" fill="#000"/><rect x="-2.5" y="-6" width="5" height="40" fill="#000"/></g>
+        </svg>
+        <div><span class="bignum" id="windkt"></span><span class="unit">kt</span></div>
+        <div class="cmeta" id="windmeta"></div>
+      </div>
+    </div>
+    <div class="strip" id="strip"></div>
+  </div>
+
+  <div class="rule-minor"></div>
+
+  <div class="sky">
+    <div class="skytop">
+      <div class="moon">
+        <svg id="moonsvg" width="104" height="104" viewBox="-56 -56 112 112" style="flex:none"></svg>
+        <div>
+          <div class="ph" id="moonlabel"></div>
+          <div class="sub" id="moonrs"></div>
+          <div class="sub" id="moonnext"></div>
+        </div>
+      </div>
+      <div class="sungrid" id="sungrid"></div>
+    </div>
+    <div class="band" id="band"></div>
+    <div class="bandlabels" id="bandlabels"></div>
+  </div>
+
+  <div class="rule-minor"></div>
+
+  <div class="windfc">
+    <div class="zonehead"><div class="label">Wind forecast · 24 h</div><div class="r" id="wfpeak"></div></div>
+    <div class="wfgrid" id="wfgrid"></div>
+  </div>
+
+  <div class="rule-major"></div>
+
+  <div class="tide">
+    <div class="zonehead"><div class="label" id="tidehead"></div><div class="r">MLLW &middot; next 24 h</div></div>
+    <div class="tiderow">
+      <div class="tidenow">
+        <div><span class="v num" id="tidelevel"></span><span class="u">ft</span></div>
+        <div class="st" id="tidestate"></div>
+      </div>
+      <div class="tidenext" id="tidenext"></div>
+    </div>
+    <div class="tidecurve"><svg id="tidesvg" width="984" height="134" viewBox="0 0 984 134"></svg></div>
+    <div class="tidecur">
+      <span class="k">Current</span><span id="curtext"></span><span class="d" id="curdetail"></span>
+    </div>
+  </div>
+
+  <div class="rule-minor"></div>
+
+  <div class="marine">
+    <div class="zonehead"><div class="label" id="marinehead"></div><div class="r" id="marineissued"></div></div>
+    <div id="marinerows"></div>
+  </div>
+
+  <div class="footer">
+    <div class="fl">
+      <svg width="30" height="16" viewBox="0 0 30 16"><rect x="1" y="1" width="24" height="14" fill="none" stroke="#3A3A3A" stroke-width="2"/><rect x="3.5" y="3.5" width="15" height="9" fill="#3A3A3A"/><rect x="27" y="5" width="3" height="6" fill="#3A3A3A"/></svg>
+      <span id="batt">72%</span>
+      <svg width="20" height="16" viewBox="0 0 20 16"><path d="M10 14 L10 13" stroke="#3A3A3A" stroke-width="3"/><path d="M6 9 a5.6 5.6 0 0 1 8 0" fill="none" stroke="#3A3A3A" stroke-width="2.4"/><path d="M2.6 5.4 a10.4 10.4 0 0 1 14.8 0" fill="none" stroke="#3A3A3A" stroke-width="2.4"/></svg>
+      <span>wifi off</span>
+    </div>
+    <div id="footer"></div>
+  </div>
+
+</div>
+
+<script>
+/* render.js replaces the next line with the derived view model. */
+window.__DATA__ = null;
+</script>
+<script>
+(function(){
+ try {
+  const EM = '—';
+  const D = window.__DATA__ || {};
+  const $ = id => document.getElementById(id);
+  const set = (id, v) => { const e = $(id); if (e) e.textContent = (v == null || v === '') ? EM : v; };
+  const pct = h => (h / 24 * 100) + '%';
+
+  /* ---- header ---- */
+  set('weekday',  D.meta?.weekday);
+  set('datefull', D.meta?.dateFull);
+  set('datemeta', D.meta?.metaLine);
+  set('clock',    D.meta?.clock);
+  set('clocksub', D.meta?.updated);
+  set('footer',   D.footer);
+
+  /* ---- alert: when active it takes the year strip's pixels ---- */
+  if (D.alerts) {
+    $('alert').classList.add('on');
+    set('alertT', D.alerts.headline);
+    set('alertD', D.alerts.count > 1 ? `+${D.alerts.count - 1} more active` : 'active now');
+  }
+
+  /* ---- conditions ---- */
+  set('stationline', D.station?.line);
+  set('fresh', D.station?.chip);
+  if (D.station?.stale) $('fresh').classList.add('stale');
+  set('temp', D.air?.temp);
+  $('tempmeta').innerHTML = D.air
+    ? `High <b>${D.air.high}&deg;</b> ${D.air.highTime}<br>Low <b>${D.air.low}&deg;</b> ${D.air.lowTime}<br>Dew ${D.air.dew}&deg; · RH ${D.air.rh}%`
+    : EM;
+  set('windkt', D.wind?.kt);
+  $('windmeta').innerHTML = D.wind
+    ? `Gust <b>${D.wind.gust} kt</b><br>From <b>${D.wind.cardinal}</b> · ${D.wind.deg}&deg;<br>${D.wind.beaufort}`
+    : EM;
+  $('windarrow').setAttribute('transform', `rotate(${D.wind?.arrowDeg ?? 0})`);
+
+  const S = D.strip || {};
+  // UV and AQI moved in here when the wind forecast took the indices zone.
+  // They lose their banded scales; the band WORD carries the interpretation.
+  const cell = (k, v, x, grow) =>
+    `<div style="flex:${grow}"><span class="k">${k}</span><span class="v">${v ?? EM}</span>` +
+    `<span class="x">${x ?? ''}</span></div>`;
+  $('strip').innerHTML =
+    cell('Press', S.pressV, S.pressX, 1.05) +
+    cell('Vis',   S.visV,   S.visX,   1.15) +
+    cell('Water', S.waterV, S.waterX, 0.9) +
+    cell('UV',    D.uv?.value,  D.uv?.band,  0.72) +
+    cell('AQI',   D.aqi?.value, D.aqi?.band, 1.18);
+
+  /* ---- moon ----
+     Terminator is a half-ellipse of semi-minor axis r*|1-2f|; the arc sweep
+     flips at f = 0.5. Lit limb is paper-white and outlined, unlit is hatched
+     (same language as night in the band). Waning = waxing path mirrored in x. */
+  function drawMoon(svg, r, f, waxing){
+    const rx = Math.abs(1 - 2*f) * r, sweep = f < 0.5 ? 0 : 1;
+    const path = `M 0 ${-r} A ${r} ${r} 0 0 1 0 ${r} A ${rx} ${r} 0 0 ${sweep} 0 ${-r} Z`;
+    svg.innerHTML =
+      `<defs><pattern id="mhatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+         <rect width="8" height="8" fill="#fff"/><rect width="3.2" height="8" fill="#000"/></pattern></defs>
+       <circle r="${r}" fill="url(#mhatch)"/>
+       <g${waxing ? '' : ' transform="scale(-1,1)"'}><path d="${path}" fill="#fff" stroke="#000" stroke-width="3" stroke-linejoin="round"/></g>
+       <circle r="${r}" fill="none" stroke="#000" stroke-width="3"/>`;
+  }
+  if (D.moon?.illum != null) drawMoon($('moonsvg'), 50, D.moon.illum / 100, D.moon.waxing);
+  set('moonlabel', D.moon?.label);
+  set('moonrs', D.moon ? `Rise ${D.moon.rise} · Set ${D.moon.set}` : null);
+  set('moonnext', D.moon?.next);
+
+  /* ---- sun grid ---- */
+  const U = D.sun || {};
+  $('sungrid').innerHTML = [
+    ['Rise', U.rise], ['Set', U.set], ['Civil', U.civil],
+    ['Naut', U.naut], ['Length', U.length], ['Dark', U.dark]
+  ].map(([k, v]) => `<div class="k">${k}</div><div class="v">${v ?? EM}</div>`).join('');
+
+  /* ---- 24 h daylight band ---- */
+  const B = D.band;
+  if (B && B.rise != null && B.set != null) {
+    let h = '';
+    if (B.dawnCivil != null) h += `<div class="seg tw" style="left:${pct(B.dawnCivil)};width:${pct(B.rise - B.dawnCivil)}"></div>`;
+    h += `<div class="seg day" style="left:${pct(B.rise)};width:${pct(B.set - B.rise)}"></div>`;
+    if (B.civilEnd != null) h += `<div class="seg tw" style="left:${pct(B.set)};width:${pct(B.civilEnd - B.set)}"></div>`;
+    if (B.noon != null) h += `<div class="noonmark" style="left:${pct(B.noon)}"></div>`;
+    h += `<div class="nowmark" style="left:${pct(B.now)}"></div>`;
+    $('band').innerHTML = h;
+    const lab = [[0, '00'], [B.rise, B.riseLabel], [B.set, B.setLabel], [24, '24']];
+    $('bandlabels').innerHTML = lab.map(([hh, t], i) => {
+      const st = i === 0 ? 'left:0;transform:none'
+               : i === lab.length - 1 ? 'right:0;left:auto;transform:none'
+               : 'left:' + pct(hh);
+      return `<span style="${st}">${t}</span>`;
+    }).join('');
+  }
+
+
+  /* ---- tide ---- */
+  const T = D.tide || {};
+  set('tidehead', T.station ? `Tide · ${T.station}` : 'Tide');
+  set('tidelevel', T.level);
+  set('tidestate', T.state);
+  $('tidenext').innerHTML = (T.next || []).map(e =>
+    `<div class="k">${e.k}</div><div class="t num">${e.time}</div><div class="h num">${e.ht}</div><div class="c num">${e.countdown}</div>`
+  ).join('');
+  set('curtext', D.current?.text);
+  set('curdetail', D.current?.detail ? '· ' + D.current.detail : null);
+
+  /* tide curve: cosine between successive extremes — how tide curves are
+     actually constructed, not a spline through dots. */
+  (function(){
+    const pts = (T.curve || []).slice();
+    if (pts.length < 2) {
+      document.getElementById('tidesvg').innerHTML =
+        '<text x="492" y="72" font-size="23" fill="#3A3A3A" text-anchor="middle" ' +
+        'font-family="Literata">\u2014 tide predictions unavailable</text>';
+      return;
+    }
+    const W = 984, H = 134, padT = 30, padB = 30, HRS = 24;
+    const fts = pts.map(p => p.ft);
+    const lo = Math.min(...fts), hi = Math.max(...fts);
+    const FMIN = Math.min(0, lo - 0.3), FMAX = hi + 0.6;
+    const X = h => h / HRS * W;
+    const Y = f => padT + (1 - (f - FMIN) / (FMAX - FMIN)) * (H - padT - padB);
+
+    // extend past the final extreme so the trace reaches the right edge
+    const work = pts.slice();
+    const last = work[work.length - 1];
+    if (last.h < HRS && work.length >= 3) {
+      const gaps = []; for (let i = 1; i < work.length; i++) gaps.push(work[i].h - work[i-1].h);
+      const mean = gaps.slice(1).reduce((a, b) => a + b, 0) / Math.max(gaps.length - 1, 1);
+      work.push({ h: last.h + mean, ft: work[work.length - 2].ft, type: 'x' });
+    }
+
+    let d = '';
+    for (let i = 0; i < work.length - 1; i++){
+      const a = work[i], b = work[i+1];
+      for (let k = 0; k <= 40; k++){
+        const u = k / 40, h = a.h + (b.h - a.h) * u;
+        if (h > HRS) break;
+        const ft = a.ft + (b.ft - a.ft) * (1 - Math.cos(Math.PI * u)) / 2;
+        d += (d ? ' L ' : 'M ') + X(h).toFixed(1) + ' ' + Y(ft).toFixed(1);
+      }
+    }
+
+    let g = '';
+    for (let hh = 0; hh <= 24; hh++){
+      const abs = (Math.floor(D.band?.now ?? 0) + hh);
+      if (abs % 6 !== 0) continue;
+      const h = hh - ((D.band?.now ?? 0) % 1);
+      if (h < 1 || h > HRS - 1) continue;
+      g += `<line x1="${X(h)}" y1="${padT}" x2="${X(h)}" y2="${H-padB}" stroke="#9A9A9A" stroke-width="1.5" stroke-dasharray="3 7"/>`
+         + `<text x="${X(h)}" y="${H-8}" font-size="19" fill="#3A3A3A" text-anchor="middle" font-family="Inter">${String(abs % 24).padStart(2,'0')}:00</text>`;
+    }
+
+    const marks = pts.filter(p => p.type === 'H' || p.type === 'L').map(p => {
+      const anchor = X(p.h) > W - 90 ? 'end' : (X(p.h) < 60 ? 'start' : 'middle');
+      return `<line x1="${X(p.h)}" y1="${Y(p.ft)}" x2="${X(p.h)}" y2="${H-padB}" stroke="#000" stroke-width="2"/>`
+           + `<circle cx="${X(p.h)}" cy="${Y(p.ft)}" r="5.5" fill="${p.type==='H'?'#000':'#fff'}" stroke="#000" stroke-width="3"/>`
+           + `<text x="${X(p.h)}" y="${Y(p.ft)-17}" font-size="20" fill="#000" text-anchor="${anchor}" font-family="Inter" font-weight="500">${p.type} ${p.ft.toFixed(2)}</text>`;
+    }).join('');
+
+    $('tidesvg').innerHTML = g
+      + `<line x1="0" y1="${H-padB}" x2="${W}" y2="${H-padB}" stroke="#9A9A9A" stroke-width="2"/>`
+      + `<path d="${d}" fill="none" stroke="#000" stroke-width="3.5" stroke-linejoin="round"/>`
+      + marks
+      + `<line x1="1.5" y1="${padT-8}" x2="1.5" y2="${H-padB}" stroke="#000" stroke-width="4"/>`
+      + `<circle cx="2" cy="${Y(pts[0].ft)}" r="6" fill="#000"/>`
+      + `<text x="11" y="${H-padB-9}" font-size="19" fill="#000" font-family="Inter" font-weight="600">NOW</text>`;
+  })();
+
+  /* ---- wind forecast: 12 two-hour blocks over the next 24 h ---- */
+  (function(){
+    const F = D.windForecast;
+    set('wfpeak', F?.peak || '');
+    const grid = $('wfgrid');
+    if (!F?.available || !F.blocks) {
+      grid.innerHTML = '<div class="wfempty">' + EM + ' wind forecast unavailable</div>';
+      return;
+    }
+    // arrow points DOWNWIND, matching the compass rose in the conditions zone
+    const arrow = (deg) => deg == null ? '' :
+      `<svg width="18" height="18" viewBox="-10 -10 20 20"><g transform="rotate(${deg + 180})">` +
+      `<path d="M0 -8 L5 6 L0 2.5 L-5 6 Z" fill="#000"/></g></svg>`;
+    grid.innerHTML = F.blocks.map(b => {
+      if (!b) return '<div class="wfcol"></div>';
+      const cls = b.band >= 4 ? 'hi' : (b.band >= 2 ? 'mid' : '');
+      return `<div class="wfcol">` +
+        `<div class="wfhr">${b.label}</div>` +
+        `<div class="wfar">${arrow(b.deg)}</div>` +
+        `<div class="wfkt">${b.kt}</div>` +
+        `<div class="wfgu ${cls}">${b.gust}</div>` +
+      `</div>`;
+    }).join('');
+  })();
+
+  /* ---- marine ---- */
+  set('marinehead', D.marine?.zone ? `Marine · ${D.marine.zone}` : 'Marine');
+  set('marineissued', D.marine?.issued || '');
+  $('marinerows').innerHTML = (D.marine?.rows || []).map(r =>
+    `<div class="mrow"><div class="mname">${r.name}</div>` +
+    `<div class="chip">${r.windChip}</div><div class="chip">${r.waveChip}</div>` +
+    `<div class="mtext">${r.text}</div></div>`
+  ).join('') || `<div class="mrow"><div class="mtext">${EM} forecast unavailable</div></div>`;
+
+  document.documentElement.setAttribute('data-render', 'ok');
+ } catch (err) {
+  // A thrown error used to leave a half-populated page that still screenshotted
+  // cleanly and exited 0 — the worst kind of failure. Make it unmissable.
+  document.documentElement.setAttribute('data-render', 'error');
+  const b = document.createElement('div');
+  b.style.cssText = 'position:absolute;top:0;left:0;right:0;background:#000;color:#fff;' +
+    'font:600 24px Inter,sans-serif;padding:14px 20px;z-index:99';
+  b.textContent = 'RENDER ERROR: ' + (err && err.message ? err.message : String(err));
+  document.body.appendChild(b);
+ }
+})();
+</script>
+</body>
+</html>

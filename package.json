@@ -1,0 +1,20 @@
+{
+  "name": "robn4-kindle-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Renders a 1072x1448 e-ink dashboard PNG for a jailbroken Kindle PW4 from the robn4-weather worker",
+  "scripts": {
+    "render": "node render.js",
+    "serve": "node tools/serve.mjs out",
+    "luacheck": "node tools/luacheck.mjs koreader/plugins/dashboard.koplugin/main.lua koreader/plugins/dashboard.koplugin/_meta.lua",
+    "fixtures": "node tools/make-test-fixtures.js",
+    "autorender": "node tools/autorender.mjs",
+    "dev": "node tools/autorender.mjs & node tools/serve.mjs out"
+  },
+  "dependencies": {
+    "sharp": "^0.33.5",
+    "@fontsource/inter": "^5.1.0",
+    "@fontsource/literata": "^5.1.0"
+  }
+}

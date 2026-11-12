@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "version": "3.18.1",
+  "air": {
+    "temperature_f": 41
+  },
+  "wind": {},
+  "tide": {
+    "available": false
+  }
+}

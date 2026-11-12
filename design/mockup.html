@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ROBN4 Kindle Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Literata:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FFFFFF; --ink:#000000; --ink-2:#3A3A3A; --rule:#9A9A9A;
+    --sans:"Inter",system-ui,sans-serif; --serif:"Literata",Georgia,serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#8d8d8d;font-family:var(--sans);display:flex;flex-direction:column;align-items:center;padding:24px 0}
+  body.shot{padding:0;background:#fff}
+  body.shot .devnote{display:none}
+
+  /* ===== DEVICE CANVAS : Kindle PW4, 1072 x 1448 @ 300ppi ===== */
+  .screen{
+    width:1072px;height:1448px;background:var(--paper);color:var(--ink);
+    padding:40px 44px 36px;display:flex;flex-direction:column;overflow:hidden;
+    -webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1;
+  }
+  .screen > div{overflow:hidden}
+
+  .rule-major{height:4px;background:var(--ink);margin:14px 0;flex:none}
+  .rule-minor{height:2px;background:var(--rule);margin:11px 0;flex:none}
+  .label{font-size:21px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+  .k{font-size:18px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+  .num{font-variant-numeric:tabular-nums}
+
+  /* hatch ramp — the grey-free scale for index bands */
+  .h0{background:#fff}
+  .h1{background:repeating-linear-gradient(45deg,#000 0 1.5px,#fff 1.5px 8px)}
+  .h2{background:repeating-linear-gradient(45deg,#000 0 3px,#fff 3px 7px)}
+  .h3{background:repeating-linear-gradient(45deg,#000 0 5px,#fff 5px 7px)}
+  .h4{background:#000}
+
+  /* ===== HEADER 150 ===== */
+  .header{height:150px;flex:none;display:flex;justify-content:space-between;align-items:flex-start}
+  .weekday{font-size:38px;font-weight:600;letter-spacing:.15em;line-height:1}
+  .datefull{font-family:var(--serif);font-size:52px;line-height:1.05;margin-top:9px}
+  .datemeta{font-size:23px;color:var(--ink-2);margin-top:10px}
+  .clock{font-size:116px;font-weight:300;line-height:.86;letter-spacing:-.02em;font-variant-numeric:tabular-nums;text-align:right}
+  .clocksub{font-size:19px;color:var(--ink-2);margin-top:9px;letter-spacing:.04em;text-align:right}
+
+  /* ===== CONDITIONS 250 ===== */
+  .cond{height:250px;flex:none;display:flex;flex-direction:column}
+  .stationline{display:flex;justify-content:space-between;align-items:baseline;height:28px;flex:none}
+  .stationline .s{font-size:20px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+  .fresh{font-size:19px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;border:2px solid var(--ink);padding:1px 9px}
+  .cond-main{height:160px;flex:none;display:flex;align-items:center}
+  .cbox{flex:1;display:flex;align-items:center;gap:20px}
+  .cbox+.cbox{border-left:2px solid var(--rule);padding-left:30px}
+  .bignum{font-size:100px;font-weight:300;line-height:.8;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+  .unit{font-size:28px;font-weight:400;color:var(--ink-2);margin-left:-4px}
+  .cmeta{font-size:22px;color:var(--ink-2);line-height:1.5;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .cmeta b{color:var(--ink);font-weight:500}
+  .strip{height:62px;flex:none;border-top:2px solid var(--rule);display:flex;align-items:center}
+  .strip > div{flex:1;display:flex;align-items:baseline;gap:12px}
+  .strip > div + div{border-left:2px solid var(--rule);padding-left:26px;margin-left:12px}
+  .strip .v{font-size:29px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .strip .x{font-size:19px;white-space:nowrap;color:var(--ink-2);font-variant-numeric:tabular-nums}
+
+  /* ===== SKY 200 ===== */
+  .sky{height:200px;flex:none;display:flex;flex-direction:column;justify-content:space-between}
+  .skytop{height:108px;display:flex;align-items:center}
+  .moon{width:452px;display:flex;align-items:center;gap:22px;padding-right:26px}
+  .moon .ph{font-family:var(--serif);font-size:29px;line-height:1.15}
+  .moon .sub{font-size:22px;color:var(--ink-2);margin-top:3px;font-variant-numeric:tabular-nums}
+  .sungrid{flex:1;border-left:2px solid var(--rule);padding-left:28px;
+           display:grid;grid-template-columns:auto 1fr auto 1fr;gap:7px 14px;align-content:center;
+           font-variant-numeric:tabular-nums}
+  .sungrid .v{font-size:25px;text-align:right}
+  .band{position:relative;height:42px;background:var(--ink);border:2px solid var(--ink);flex:none}
+  .seg{position:absolute;top:0;bottom:0}
+  .seg.day{background:var(--paper)}
+  .seg.tw{background:repeating-linear-gradient(45deg,#000 0 2px,#fff 2px 6px)}
+  .nowmark{position:absolute;top:-7px;bottom:-7px;width:4px;background:var(--ink)}
+  .noonmark{position:absolute;top:0;width:2px;height:10px;background:var(--ink)}
+  .bandlabels{position:relative;height:24px;font-size:19px;color:var(--ink-2);font-variant-numeric:tabular-nums;flex:none}
+  .bandlabels span{position:absolute;top:3px;transform:translateX(-50%);white-space:nowrap}
+
+  /* ===== INDICES 90 ===== */
+  .idx{height:90px;flex:none;display:flex}
+  .idxbox{flex:1;display:flex;flex-direction:column;justify-content:center}
+  .idxbox+.idxbox{border-left:2px solid var(--rule);padding-left:30px}
+  .idxtop{display:flex;align-items:baseline;gap:12px}
+  .idxtop .v{font-size:46px;font-weight:400;line-height:1;font-variant-numeric:tabular-nums}
+  .idxtop .b{font-size:24px;font-family:var(--serif)}
+  .idxtop .x{font-size:19px;white-space:nowrap;color:var(--ink-2);margin-left:auto;font-variant-numeric:tabular-nums;padding-right:26px}
+  .scale{position:relative;height:16px;display:flex;margin-top:11px;margin-right:26px;border:2px solid var(--ink)}
+  .scale > i{flex:1;border-right:1px solid var(--ink)}
+  .scale > i:last-child{border-right:none}
+  .scalemark{position:absolute;top:-8px;width:0;height:0;
+             border-left:8px solid transparent;border-right:8px solid transparent;border-top:10px solid #000;
+             transform:translateX(-50%)}
+
+  /* ===== TIDE 290 ===== */
+  .tide{height:290px;flex:none;display:flex;flex-direction:column}
+  .zonehead{display:flex;justify-content:space-between;align-items:baseline;height:28px;flex:none}
+  .zonehead .r{font-size:20px;color:var(--ink-2);letter-spacing:.06em;font-variant-numeric:tabular-nums}
+  .tiderow{height:80px;flex:none;display:flex;align-items:center}
+  .tidenow{width:330px;display:flex;align-items:baseline;gap:14px}
+  .tidenow .v{font-size:76px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums}
+  .tidenow .u{font-size:26px;color:var(--ink-2)}
+  .tidenow .st{font-size:25px;font-family:var(--serif)}
+  .tidenext{flex:1;border-left:2px solid var(--rule);padding-left:28px;
+            display:grid;grid-template-columns:auto auto auto 1fr;gap:7px 18px;align-content:center;
+            font-variant-numeric:tabular-nums}
+  .tidenext .t{font-size:27px;font-weight:500}
+  .tidenext .h{font-size:27px}
+  .tidenext .c{font-size:21px;color:var(--ink-2)}
+  .tidecurve{height:134px;flex:none}
+  .tidecur{height:44px;flex:none;border-top:2px solid var(--rule);display:flex;align-items:center;gap:14px;
+           font-size:23px;font-variant-numeric:tabular-nums}
+  .tidecur .d{color:var(--ink-2)}
+
+  /* ===== MARINE 180 ===== */
+  .marine{height:180px;flex:none;display:flex;flex-direction:column}
+  .mrow{height:70px;flex:none;display:flex;align-items:flex-start;gap:16px;padding-top:7px}
+  .mrow+.mrow{border-top:2px solid var(--rule)}
+  .mname{width:132px;flex:none;font-size:21px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding-top:3px}
+  .chip{flex:none;font-size:21px;border:2px solid var(--ink);padding:2px 10px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .mtext{flex:1;font-family:var(--serif);font-size:23px;line-height:1.32;color:var(--ink-2);
+         display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+  /* ===== YEAR 44 ===== */
+  .year{height:44px;flex:none;border-top:2px solid var(--rule);padding-top:10px;display:flex;align-items:center;gap:18px}
+  .year .t{font-size:21px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
+  .ticks{flex:1;display:flex;align-items:flex-end;gap:4px;height:20px}
+  .tk{flex:1;background:var(--ink)}
+  .tk.past{height:15px}
+  .tk.now{height:20px}
+  .tk.future{height:5px;background:var(--rule)}
+
+  /* ===== FOOTER 32 ===== */
+  .footer{margin-top:auto;height:32px;flex:none;display:flex;justify-content:space-between;align-items:center;
+          font-size:19px;color:var(--ink-2);letter-spacing:.05em;font-variant-numeric:tabular-nums}
+  .fl{display:flex;align-items:center;gap:13px}
+  .devnote{width:1072px;color:#fff;font-size:13px;padding:14px 4px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<div class="screen">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <div class="weekday">WEDNESDAY</div>
+      <div class="datefull">11 November 2026</div>
+      <div class="datemeta num">Week 46 &middot; Day 315 &middot; 50 days left in 2026</div>
+    </div>
+    <div>
+      <div class="clock">18:52</div>
+      <div class="clocksub num">updated 18:52</div>
+    </div>
+  </div>
+
+  <div class="rule-major"></div>
+
+  <!-- CONDITIONS -->
+  <div class="cond">
+    <div class="stationline">
+      <div class="s">ROBN4 &middot; Robbins Reef Light &middot; obs 18:42</div>
+      <div class="fresh">Fresh 10m</div>
+    </div>
+    <div class="cond-main">
+      <div class="cbox">
+        <div><span class="bignum">58</span><span class="unit">&deg;F</span></div>
+        <div class="cmeta">
+          High <b>63&deg;</b> 14:54<br>
+          Low <b>51&deg;</b> 06:30<br>
+          Dew 49&deg; &middot; RH 75%
+        </div>
+      </div>
+      <div class="cbox">
+        <svg width="78" height="78" viewBox="-50 -50 100 100" style="flex:none">
+          <circle cx="0" cy="0" r="46" fill="none" stroke="#9A9A9A" stroke-width="2"/>
+          <g transform="rotate(2)">
+            <path d="M0 -38 L13 2 L0 -8 L-13 2 Z" fill="#000"/>
+            <rect x="-2.5" y="-6" width="5" height="40" fill="#000"/>
+          </g>
+        </svg>
+        <div><span class="bignum">12.6</span><span class="unit">kt</span></div>
+        <div class="cmeta">
+          Gust <b>14.8 kt</b><br>
+          From <b>S</b> &middot; 182&deg;<br>
+          Force 4 moderate
+        </div>
+      </div>
+    </div>
+    <div class="strip">
+      <div><span class="k">Press</span><span class="v num">1011</span><span class="x">mb &middot; 29.85&Prime; steady</span></div>
+      <div><span class="k">Vis</span><span class="v num">8.7</span><span class="x">nm &middot; KJRB</span></div>
+      <div><span class="k">Water</span><span class="v num">59.4&deg;</span><span class="x">Battery</span></div>
+    </div>
+  </div>
+
+  <div class="rule-minor"></div>
+
+  <!-- SKY -->
+  <div class="sky">
+    <div class="skytop">
+      <div class="moon">
+        <svg id="moonsvg" width="104" height="104" viewBox="-56 -56 112 112" style="flex:none"></svg>
+        <div>
+          <div class="ph">Waxing crescent &middot; 8%</div>
+          <div class="sub">Rise 10:07 &middot; Set 18:57</div>
+          <div class="sub">Full moon Nov 24</div>
+        </div>
+      </div>
+      <div class="sungrid">
+        <div class="k">Rise</div><div class="v">06:39</div>
+        <div class="k">Set</div><div class="v">16:43</div>
+        <div class="k">Civil</div><div class="v">17:12</div>
+        <div class="k">Naut</div><div class="v">17:45</div>
+        <div class="k">Length</div><div class="v">10h 04m</div>
+        <div class="k">Dark</div><div class="v">13h 56m</div>
+      </div>
+    </div>
+    <div class="band" id="band"></div>
+    <div class="bandlabels" id="bandlabels"></div>
+  </div>
+
+  <div class="rule-minor"></div>
+
+  <!-- INDICES -->
+  <div class="idx">
+    <div class="idxbox">
+      <div class="idxtop"><span class="k">UV</span><span class="v num">0</span><span class="b">Low</span>
+        <span class="x">peak 1.1 &middot; 10:00</span></div>
+      <div class="scale" id="uvscale"></div>
+    </div>
+    <div class="idxbox">
+      <div class="idxtop"><span class="k">AQI</span><span class="v num">51</span><span class="b">Moderate</span>
+        <span class="x">PM2.5 20 &middot; PM10 20.4</span></div>
+      <div class="scale" id="aqiscale"></div>
+    </div>
+  </div>
+
+  <div class="rule-major"></div>
+
+  <!-- TIDE -->
+  <div class="tide">
+    <div class="zonehead"><div class="label">Tide &middot; The Battery</div><div class="r">MLLW &middot; next 24 h</div></div>
+    <div class="tiderow">
+      <div class="tidenow">
+        <div><span class="v num">3.71</span><span class="u">ft</span></div>
+        <div class="st">flooding &uarr;</div>
+      </div>
+      <div class="tidenext">
+        <div class="k">High</div><div class="t num">21:30</div><div class="h num">4.15 ft</div><div class="c num">in 2h 38m</div>
+        <div class="k">Low</div><div class="t num">03:33</div><div class="h num">0.70 ft</div><div class="c num">+8h 41m</div>
+        <div class="k">High</div><div class="t num">09:38</div><div class="h num">5.02 ft</div><div class="c num">+14h 46m</div>
+      </div>
+    </div>
+    <div class="tidecurve"><svg id="tidesvg" width="984" height="134" viewBox="0 0 984 134"></svg></div>
+    <div class="tidecur">
+      <span class="k">Current</span><span>0.35 kt ebb SSW</span>
+      <span class="d">&middot; weakening &middot; slack 19:27 &middot; flood 22:14 at 0.9 kt</span>
+    </div>
+  </div>
+
+  <div class="rule-minor"></div>
+
+  <!-- MARINE -->
+  <div class="marine">
+    <div class="zonehead"><div class="label">Marine &middot; ANZ338 New York Harbor</div><div class="r">issued 18:08</div></div>
+    <div class="mrow">
+      <div class="mname">Tonight</div>
+      <div class="chip">S 5&ndash;10 kt</div>
+      <div class="chip">&le;1 ft</div>
+      <div class="mtext">S winds 5 to 10 kt, becoming SE after midnight, then E 10 to 15 kt late. Waves 1 ft or less, then around 2 ft after midnight. Slight chance of showers after midnight.</div>
+    </div>
+    <div class="mrow">
+      <div class="mname">Thu</div>
+      <div class="chip">E 10&ndash;15 G20</div>
+      <div class="chip">1&ndash;2 ft</div>
+      <div class="mtext">E winds 10 to 15 kt with gusts up to 20 kt. Waves 1 to 2 ft. Showers. Vsby around 3 nm in the afternoon.</div>
+    </div>
+  </div>
+
+  <!-- YEAR -->
+  <div class="year">
+    <div class="t">50 days left &middot; 86%</div>
+    <div class="ticks" id="ticks"></div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="fl">
+      <svg width="30" height="16" viewBox="0 0 30 16"><rect x="1" y="1" width="24" height="14" fill="none" stroke="#3A3A3A" stroke-width="2"/><rect x="3.5" y="3.5" width="15" height="9" fill="#3A3A3A"/><rect x="27" y="5" width="3" height="6" fill="#3A3A3A"/></svg>
+      <span>72%</span>
+      <svg width="20" height="16" viewBox="0 0 20 16"><path d="M10 14 L10 13" stroke="#3A3A3A" stroke-width="3"/><path d="M6 9 a5.6 5.6 0 0 1 8 0" fill="none" stroke="#3A3A3A" stroke-width="2.4"/><path d="M2.6 5.4 a10.4 10.4 0 0 1 14.8 0" fill="none" stroke="#3A3A3A" stroke-width="2.4"/></svg>
+      <span>wifi off</span>
+    </div>
+    <div>robn4-weather &middot; v3.18.1 &middot; AQI open-meteo (AirNow down) &middot; seas 62m old</div>
+  </div>
+
+</div>
+
+<div class="devnote">Canvas above is exactly 1072 &times; 1448 &mdash; Kindle PW4 at 1:1. Live values from robn4-weather, 11 Nov 2026 18:52 EST.</div>
+
+<script>
+if (location.hash === '#shot') document.body.classList.add('shot');
+
+/* ---------- moon ---------- */
+let _uid = 0;
+function moonPath(r, f){
+  const rx = Math.abs(1 - 2*f) * r, sweep = f < 0.5 ? 0 : 1;
+  return `M 0 ${-r} A ${r} ${r} 0 0 1 0 ${r} A ${rx} ${r} 0 0 ${sweep} 0 ${-r} Z`;
+}
+function drawMoon(svg, r, f, waxing){
+  const id = 'hatch' + (++_uid);
+  svg.innerHTML =
+    `<defs><pattern id="${id}" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+       <rect width="8" height="8" fill="#fff"/><rect width="3.2" height="8" fill="#000"/></pattern></defs>
+     <circle r="${r}" fill="url(#${id})"/>
+     <g${waxing ? '' : ' transform="scale(-1,1)"'}><path d="${moonPath(r,f)}" fill="#fff" stroke="#000" stroke-width="3" stroke-linejoin="round"/></g>
+     <circle r="${r}" fill="none" stroke="#000" stroke-width="3"/>`;
+}
+drawMoon(document.getElementById('moonsvg'), 50, 0.08, true);
+
+/* ---------- 24h daylight band ---------- */
+(function(){
+  const pct = h => (h/24*100) + '%';
+  const s = { rise:6.65, set:16.72, civil:17.20, naut:17.75, dawnCivil:6.17, now:18.87, noon:11.68 };
+  document.getElementById('band').innerHTML =
+    `<div class="seg tw"  style="left:${pct(s.dawnCivil)};width:${pct(s.rise-s.dawnCivil)}"></div>` +
+    `<div class="seg day" style="left:${pct(s.rise)};width:${pct(s.set-s.rise)}"></div>` +
+    `<div class="seg tw"  style="left:${pct(s.set)};width:${pct(s.civil-s.set)}"></div>` +
+    `<div class="noonmark" style="left:${pct(s.noon)}"></div>` +
+    `<div class="nowmark" style="left:${pct(s.now)}"></div>`;
+  const lab = [[0,'00'],[s.rise,'↑ 06:39'],[s.set,'↓ 16:43'],[24,'24']];
+  document.getElementById('bandlabels').innerHTML = lab.map(([h,t],i)=>{
+    const st = i===0 ? 'left:0;transform:none'
+             : i===lab.length-1 ? 'right:0;left:auto;transform:none'
+             : 'left:'+pct(h);
+    return `<span style="${st}">${t}</span>`;
+  }).join('');
+})();
+
+/* ---------- index scales: hatch ramp + marker ---------- */
+function drawScale(el, bands, value, max){
+  el.innerHTML = bands.map(b => `<i class="h${b}"></i>`).join('') +
+    `<div class="scalemark" style="left:${Math.min(value/max,1)*100}%"></div>`;
+}
+drawScale(document.getElementById('uvscale'),  [0,1,2,3,4],     0.35, 12);   /* UV 0 -> nudged off the edge */
+drawScale(document.getElementById('aqiscale'), [0,1,2,3,4,4],  51,  300);
+
+/* ---------- tide curve: cosine between successive extremes ---------- */
+(function(){
+  const W = 984, H = 134, padT = 30, padB = 30;
+  // hours from now, feet.  First point is the observed level, not an extreme.
+  const pts = [
+    {h:0,     ft:3.707, type:'now'},
+    {h:2.63,  ft:4.15,  type:'H', time:'21:30'},
+    {h:8.68,  ft:0.70,  type:'L', time:'03:33'},
+    {h:14.77, ft:5.02,  type:'H', time:'09:38'},
+    {h:21.45, ft:0.43,  type:'L', time:'16:19'}
+  ];
+  const HRS = 24, FMAX = 5.6;
+  const X = h => h / HRS * W;
+  const Y = f => padT + (1 - f/FMAX) * (H - padT - padB);
+
+  // sample the cosine interpolation
+  let d = '';
+  for (let i = 0; i < pts.length - 1; i++){
+    const a = pts[i], b = pts[i+1];
+    for (let k = 0; k <= 40; k++){
+      const u = k/40, h = a.h + (b.h-a.h)*u;
+      const ft = a.ft + (b.ft-a.ft) * (1 - Math.cos(Math.PI*u))/2;
+      d += (d ? ' L ' : 'M ') + X(h).toFixed(1) + ' ' + Y(ft).toFixed(1);
+    }
+  }
+  // extend past the final extreme to the right edge
+  const last = pts[pts.length-1];
+  for (let k = 1; k <= 12; k++){
+    const u = k/24, h = last.h + (HRS-last.h)*(k/12);
+    const ft = last.ft + (5.0-last.ft)*(1-Math.cos(Math.PI*u))/2;
+    if (h <= HRS) d += ' L ' + X(h).toFixed(1) + ' ' + Y(ft).toFixed(1);
+  }
+
+  const gridHours = [5.13, 11.13, 17.13, 23.13], gridLabels = ['00:00','06:00','12:00','18:00'];
+  let g = '';
+  gridHours.forEach((h,i) => {
+    g += `<line x1="${X(h)}" y1="${padT}" x2="${X(h)}" y2="${H-padB}" stroke="#9A9A9A" stroke-width="1.5" stroke-dasharray="3 7"/>`;
+    g += `<text x="${X(h)}" y="${H-8}" font-size="19" fill="#3A3A3A" text-anchor="middle" font-family="Inter">${gridLabels[i]}</text>`;
+  });
+
+  let marks = '';
+  pts.slice(1).forEach(p => {
+    marks += `<line x1="${X(p.h)}" y1="${Y(p.ft)}" x2="${X(p.h)}" y2="${H-padB}" stroke="#000" stroke-width="2"/>`;
+    marks += `<circle cx="${X(p.h)}" cy="${Y(p.ft)}" r="5.5" fill="${p.type==='H'?'#000':'#fff'}" stroke="#000" stroke-width="3"/>`;
+    const anchor = X(p.h) > W-90 ? 'end' : (X(p.h) < 60 ? 'start' : 'middle');
+    marks += `<text x="${X(p.h)}" y="${Y(p.ft) - 17}" font-size="20" fill="#000" text-anchor="${anchor}" font-family="Inter" font-weight="500">${p.type} ${p.ft.toFixed(2)}</text>`;
+  });
+
+  document.getElementById('tidesvg').innerHTML =
+    g +
+    `<line x1="0" y1="${H-padB}" x2="${W}" y2="${H-padB}" stroke="#9A9A9A" stroke-width="2"/>` +
+    `<path d="${d}" fill="none" stroke="#000" stroke-width="3.5" stroke-linejoin="round"/>` +
+    marks +
+    `<line x1="1.5" y1="${padT-8}" x2="1.5" y2="${H-padB}" stroke="#000" stroke-width="4"/>` +
+    `<circle cx="2" cy="${Y(3.707)}" r="6" fill="#000"/>` +
+    `<text x="11" y="${H-padB-9}" font-size="19" fill="#000" font-family="Inter" font-weight="600">NOW</text>`;
+})();
+
+/* ---------- 52-week ticks ---------- */
+(function(){
+  const cur = 46; let h = '';
+  for (let w = 1; w <= 52; w++)
+    h += `<div class="tk ${w<cur?'past':(w===cur?'now':'future')}"></div>`;
+  document.getElementById('ticks').innerHTML = h;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+name: Render dashboard
+
+on:
+  schedule:
+    # Every 15 minutes. GitHub's scheduler is best-effort — 5-20 minutes late is
+    # normal — which is exactly what the device's staleness badge exists to show.
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; queue instead of cancelling, so a scheduled run
+# can't discard a render that is already uploading.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # `npm install` rather than `npm ci`: the lockfile was generated on
+      # darwin-arm64 and sharp resolves a different optional binary per platform.
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Locate Chrome
+        run: |
+          BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          if [ -z "$BIN" ]; then
+            echo "::error::No Chrome on the runner image; render.js cannot screenshot."
+            exit 1
+          fi
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+          echo "using $BIN ($("$BIN" --version))"
+
+      # If the worker is unreachable render.js exits non-zero and this job fails,
+      # which leaves the PREVIOUS Pages deployment live. A stale dashboard that
+      # says it is stale beats replacing it with a broken one.
+      - name: Render
+        run: node render.js
+
+      - name: Summarise
+        run: |
+          ls -la out/
+          echo '### Rendered' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat out/dashboard.json >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
