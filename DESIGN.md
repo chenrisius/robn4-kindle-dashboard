@@ -613,3 +613,102 @@ dispatch. There is no introspection endpoint for a fine-grained token's
 permissions, so the only honest test of "can this token dispatch" is
 dispatching. A health page can report the last *observed* dispatch outcome; it
 cannot predict the next one. Reporting history beats asserting capability.
+
+## 20. The cache that undid the honesty
+
+Every layer of this project was built to be honest about staleness, and the
+layer that finally lied was the one nobody thought of as a layer at all.
+
+**What happened.** Tapping refresh downloaded the new render and left the old
+one on screen. Not a failed fetch — a successful one. `crash.log` recorded ten
+`new render` lines each followed by `image cached`, the manifest in
+`settings/dashboard.lua` held the newest `rendered_at`, and the PNG on disk
+matched the live manifest byte for byte at 67427 bytes. The data was always
+right. The pixels were hours old.
+
+**What it wasn't.** Not the network: the downloads are in the log. Not
+`min_interval` gating the tap — `on_refresh` calls `show(true)` and `force`
+short-circuits the freshness check. Not `fetch()`, which writes to
+`dashboard.png.part` and only `os.rename`s on success. Not `render()`, which
+closes the previous view before building a new one. Every piece the project
+owns did its job.
+
+**The mechanism.** `ImageWidget` caches decoded bitmaps, and the key is built
+in `frontend/ui/widget/imagewidget.lua:147`:
+
+```lua
+local hash = "image|"..self.file.."|"..tostring(width).."|"..tostring(height).."|"..(self.alpha and "alpha" or "flat")
+```
+
+No mtime. No size. No content hash. Two further details make that key a
+constant here: the cache path never changes, and because `scale_factor` is
+always non-nil in this plugin, `imagewidget` deliberately leaves `width` and
+`height` out of the key. So every refresh computes
+
+```
+image|/mnt/us/koreader/cache/dashboard/dashboard.png|nil|nil|flat
+```
+
+and `ImageCache:check(hash)` hands back the first decode of the session,
+forever.
+
+**Why it survived development.** The cache lives in RAM, so restarting
+KOReader clears it — and the bug needs two renders inside one session to appear
+at all. Segmenting `crash.log` by KOReader's startup banner shows development
+never produced that condition:
+
+| Session | Began | Renders downloaded | Renders displayed |
+|---|---|---|---|
+| 14 | 11/11 19:45 | 1 | 1 |
+| 15 | 11/11 20:22 | 1 | 1 |
+| 17 | 11/11 20:43 | 1 | 1 |
+| 18 | 11/11 21:49 | 3 | **1** |
+| 19 | 11/11 23:15 | 4 | **1** |
+| 20 | 11/12 16:20 | 2 | **1** |
+
+Sessions 14 through 17 are the hardware tests, one render each, KOReader
+restarted between them — all correct, and all blind to the defect. Session 19
+ran about seventeen hours and showed the 09:40Z render the whole way while
+three newer ones landed on disk behind it.
+
+**Why this was worse than a stale picture.** `badge_text` is derived from the
+manifest, and the manifest updated correctly. So the stale image was drawn with
+a fresh, badge-free footer: the device asserting the picture was current while
+showing numbers hours old. That is precisely the failure §19's whole staleness
+apparatus exists to prevent, arriving from the one direction it was not
+watching.
+
+**The fix.**
+
+```lua
+file_do_cache = false,
+```
+
+KOReader documents it as "Whether BlitBuffer rendered from file should be
+cached", default `true`. It is the correct setting here on its own merits,
+independent of the bug: a 1072x1448 one-shot bitmap is roughly 1.5 MB of a
+shared cache budget, evicting icons to hold something replaced every fifteen
+minutes. It also sets `_bb_disposable`, so the buffer is freed when the view
+closes rather than held for a hit that would be wrong anyway.
+
+Before trusting it, the layer underneath was checked too:
+`RenderImage:renderImageFile` does a plain `io.open` / `read("*a")` / decode on
+every call, and its only mentions of caching are comments saying it deliberately
+does not. One cache layer, now bypassed. A fix that removed one of two would
+have looked identical and failed later.
+
+**The lesson, which is not "caches are tricky".** The staleness defences are
+all computed from metadata — `rendered_at` from the manifest, compared against
+the device clock, rendered as a badge. The thing being defended is a bitmap.
+Nothing in the system ever compared those two against each other, so a fault
+that corrupted only the bitmap passed every check and inherited the badge's
+credibility. A guarantee derived from metadata cannot detect a failure in the
+payload; it can only vouch for the metadata, and it will vouch just as
+confidently when the payload is wrong.
+
+The cheap version of that check, worth having if this ever recurs: the manifest
+already carries `bytes`, so the plugin could compare it against the size of the
+file it is about to display and refuse to draw a mismatch. That catches a
+truncated or wrong-file case. It would *not* have caught this one — the file on
+disk was always correct — which is the sharper point. The corruption was between
+the file and the screen, a span nothing was instrumented to observe.
