@@ -149,6 +149,23 @@ function DashboardView:build()
         width = self.dimen.w,
         height = self.dimen.h,
         scale_factor = exact and 1 or 0,
+        -- MUST stay false. ImageCache keys on
+        --   "image|<path>|<width>|<height>|<alpha>"
+        -- (imagewidget.lua:147) with no mtime, size or content hash. Because
+        -- scale_factor is always non-nil here, width/height go into that key as
+        -- nil, and our cache path never changes -- so the key is byte-identical
+        -- on every refresh. With caching on, the second and later refreshes in
+        -- one KOReader session re-display the FIRST decode: fetch() downloads
+        -- the new PNG, os.rename swaps it in, and the panel still shows the old
+        -- numbers. Worse, the staleness badge is computed from the manifest,
+        -- which DID update, so the stale image renders with no badge at all --
+        -- the dashboard lying about its age, which is the one failure this
+        -- whole design exists to prevent.
+        -- Caching is pointless here anyway: a 1072x1448 one-shot bitmap is
+        -- ~1.5 MB of the shared cache budget, evicting icons to store something
+        -- that is replaced every 15 minutes. false also sets _bb_disposable,
+        -- so the buffer is freed when the view closes.
+        file_do_cache = false,
     }
 
     if not self.badge_text then
