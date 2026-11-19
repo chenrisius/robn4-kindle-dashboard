@@ -21,6 +21,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: read   # the wait step below lists this run's artifacts
 
 # Never let two deploys race; queue instead of cancelling, so a scheduled run
 # can't discard a render that is already uploading.
@@ -74,6 +75,43 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out
+
+      # deploy-pages fetches the artifact back through GitHub's artifacts API,
+      # which is read-after-write eventually consistent. Measured over 700 runs:
+      # 8 failed because that lookup fired 300-380 ms after the upload reported
+      # "successfully finalized" and got back `Found 0 artifact(s)`. The render
+      # had already succeeded in every one -- only the handover failed, and the
+      # next scheduled run always republished. The cost was the failure email,
+      # not the dashboard.
+      #
+      # What actually closes the window is elapsed time, so the fixed sleep is
+      # the part doing the work; the poll just lets a healthy run move on
+      # quickly and turns a genuine propagation failure into a clear error
+      # instead of a confusing one from deploy-pages. Note deploy-pages may read
+      # a different backend than this REST endpoint, so treat a visible artifact
+      # here as good evidence rather than proof.
+      - name: Wait for the artifact to be visible
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sleep 3
+          for i in $(seq 1 20); do
+            n=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
+                  --jq '[.artifacts[] | select(.name == "github-pages")] | length' 2>/dev/null || echo 0)
+            # If gh fails it can leave $n non-numeric, and `[ -ge ]` then prints
+            # "integer expression expected" on every check. It would not fail the
+            # job -- a failing test inside `if` is exempt from set -e -- but it
+            # would spray errors through the log we are here to quieten.
+            case "$n" in ''|*[!0-9]*) n=0 ;; esac
+            if [ "$n" -ge 1 ]; then
+              echo "github-pages artifact visible after $i check(s)"
+              exit 0
+            fi
+            echo "not visible yet (check $i)"
+            sleep 2
+          done
+          echo "::error::github-pages artifact never became visible"
+          exit 1
 
       - id: deployment
         uses: actions/deploy-pages@v4
