@@ -161,8 +161,23 @@ Three pieces, each doing one thing:
 | Piece | Job |
 |---|---|
 | Cloudflare Worker cron (`cron/`) | says "now", every 15 minutes |
-| GitHub Actions (`.github/workflows/render.yml`) | renders and publishes `out/` |
-| GitHub Pages | serves it to the Kindle |
+| GitHub Actions (`.github/workflows/render.yml`) | renders, then force-pushes `out/` to `gh-pages` |
+| GitHub Pages | serves the `gh-pages` branch to the Kindle |
+
+**Pages must stay on the branch source.** Settings → Pages → Build and
+deployment → Source = *Deploy from a branch*, branch `gh-pages`, folder `/`.
+If that is ever switched back to *GitHub Actions*, the workflow keeps pushing
+and the site silently stops updating, because nothing would be serving the
+branch. The branch is rewritten as a single commit each render, so it has no
+history worth protecting — do not enable branch protection on it, which would
+block the force-push.
+
+Publishing used to go through `upload-pages-artifact` + `deploy-pages`. That
+path broke on 24 Nov 2026 when GitHub's artifact lookup began returning
+`Found 0 artifact(s)` for ~14% of runs, seconds after the upload succeeded.
+The comment above that step in `render.yml` records why waiting could not fix
+it: the lookup deploy-pages uses is a different service from the REST artifacts
+API, which was returning the artifact correctly at the same moment.
 
 Published files:
 
