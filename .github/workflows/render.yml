@@ -17,14 +17,14 @@ on:
     # occasional overlap is harmless.
     - cron: '7,22,37,52 * * * *'
 
+# Publishing is now a git push to gh-pages, so contents: write is the only
+# grant needed. pages: write, id-token: write and actions: read all belonged to
+# the artifact/deploy-pages path and are gone with it.
 permissions:
-  contents: read
-  pages: write
-  id-token: write
-  actions: read   # the wait step below lists this run's artifacts
+  contents: write
 
-# Never let two deploys race; queue instead of cancelling, so a scheduled run
-# can't discard a render that is already uploading.
+# Never let two publishes race. Each one force-pushes gh-pages, so queueing
+# rather than cancelling keeps the branch's single commit coherent.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -32,9 +32,6 @@ concurrency:
 jobs:
   render:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -72,46 +69,38 @@ jobs:
           echo '' >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: out
-
-      # deploy-pages fetches the artifact back through GitHub's artifacts API,
-      # which is read-after-write eventually consistent. Measured over 700 runs:
-      # 8 failed because that lookup fired 300-380 ms after the upload reported
-      # "successfully finalized" and got back `Found 0 artifact(s)`. The render
-      # had already succeeded in every one -- only the handover failed, and the
-      # next scheduled run always republished. The cost was the failure email,
-      # not the dashboard.
+      # PUBLISH. Pages serves the gh-pages branch directly (Settings > Pages,
+      # source = gh-pages), so publishing is a git push and nothing else.
       #
-      # What actually closes the window is elapsed time, so the fixed sleep is
-      # the part doing the work; the poll just lets a healthy run move on
-      # quickly and turns a genuine propagation failure into a clear error
-      # instead of a confusing one from deploy-pages. Note deploy-pages may read
-      # a different backend than this REST endpoint, so treat a visible artifact
-      # here as good evidence rather than proof.
-      - name: Wait for the artifact to be visible
+      # This replaces upload-pages-artifact + deploy-pages, which failed on
+      # GitHub's artifact service: deploy-pages looks the artifact up through
+      # the Twirp ListArtifacts endpoint, and on 24 Nov 2026 that endpoint began
+      # returning "Found 0 artifact(s)" for ~14% of runs, minutes after the
+      # upload reported success. A previous fix polled the REST artifacts API
+      # until the artifact appeared; it worked for 451 consecutive runs and then
+      # stopped helping, because the two endpoints are different services -- the
+      # REST one listed the artifact while deploy-pages still saw none 0.7 s
+      # later. No amount of waiting fixes a read that is already succeeding.
+      #
+      # A push has no such handover. The artifact service is simply not in the
+      # path any more.
+      #
+      # `git init` inside out/ each run means the branch is always exactly one
+      # commit: no history, no growth, nothing to prune. The force-push is
+      # therefore not destructive of anything we want to keep.
+      - name: Publish to gh-pages
+        run: |
+          touch out/.nojekyll   # serve the files as-is; skip Jekyll processing
+          cd out
+          git init -q -b gh-pages
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Render $(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+                        -m "Published by ${GITHUB_WORKFLOW} run ${GITHUB_RUN_ID}."
+          git push -q --force \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            gh-pages:gh-pages
+          echo "pushed $(git rev-parse --short HEAD) to gh-pages"
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          sleep 3
-          for i in $(seq 1 20); do
-            n=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
-                  --jq '[.artifacts[] | select(.name == "github-pages")] | length' 2>/dev/null || echo 0)
-            # If gh fails it can leave $n non-numeric, and `[ -ge ]` then prints
-            # "integer expression expected" on every check. It would not fail the
-            # job -- a failing test inside `if` is exempt from set -e -- but it
-            # would spray errors through the log we are here to quieten.
-            case "$n" in ''|*[!0-9]*) n=0 ;; esac
-            if [ "$n" -ge 1 ]; then
-              echo "github-pages artifact visible after $i check(s)"
-              exit 0
-            fi
-            echo "not visible yet (check $i)"
-            sleep 2
-          done
-          echo "::error::github-pages artifact never became visible"
-          exit 1
-
-      - id: deployment
-        uses: actions/deploy-pages@v4
