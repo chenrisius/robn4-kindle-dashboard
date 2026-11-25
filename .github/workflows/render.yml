@@ -88,6 +88,22 @@ jobs:
       # `git init` inside out/ each run means the branch is always exactly one
       # commit: no history, no growth, nothing to prune. The force-push is
       # therefore not destructive of anything we want to keep.
+      #
+      # THE RETRY IS NOT THE SAME MISTAKE AS THE LAST ONE. The artifact wait
+      # that preceded this step was useless because the read it waited on was
+      # already succeeding -- a different service was failing. Here the write
+      # itself returns `remote: Internal Server Error` and the ref genuinely
+      # does not move: on 24 Nov 2026 three pushes failed that way (18:30,
+      # 22:30, 23:30 UTC) and GitHub recorded no Pages build at any of those
+      # times, while every other quarter-hour built normally. No GitHub
+      # incident covered it. Retrying is correct because the push is
+      # idempotent: the commit object already exists locally, so every attempt
+      # offers the identical SHA, and a push that did land server-side but
+      # reported 500 simply reports "Everything up-to-date" and exits 0.
+      #
+      # Four attempts at ~9% observed failure give roughly one failed publish
+      # per 15,000 runs. The delays lengthen so a brief backend wobble and a
+      # longer one are both covered; worst case adds 65 s to a ~25 s job.
       - name: Publish to gh-pages
         run: |
           touch out/.nojekyll   # serve the files as-is; skip Jekyll processing
@@ -98,9 +114,25 @@ jobs:
           git add -A
           git commit -q -m "Render $(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
                         -m "Published by ${GITHUB_WORKFLOW} run ${GITHUB_RUN_ID}."
-          git push -q --force \
-            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
-            gh-pages:gh-pages
-          echo "pushed $(git rev-parse --short HEAD) to gh-pages"
+
+          SHA="$(git rev-parse --short HEAD)"
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          ATTEMPT=0
+
+          # A failing command inside `if` is exempt from `bash -e`, so the loop
+          # survives a rejected push and only the explicit exits end the step.
+          for delay in 5 15 45 0; do
+            ATTEMPT=$((ATTEMPT + 1))
+            if git push -q --force "$REMOTE" gh-pages:gh-pages; then
+              echo "pushed $SHA to gh-pages on attempt $ATTEMPT"
+              exit 0
+            fi
+            if [ "$delay" = 0 ]; then break; fi
+            echo "push rejected; retrying in ${delay}s"
+            sleep "$delay"
+          done
+
+          echo "::error::$ATTEMPT pushes to gh-pages were rejected; the previous render stays live."
+          exit 1
         env:
           GH_TOKEN: ${{ github.token }}

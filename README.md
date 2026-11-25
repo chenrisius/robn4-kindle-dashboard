@@ -179,6 +179,16 @@ The comment above that step in `render.yml` records why waiting could not fix
 it: the lookup deploy-pages uses is a different service from the REST artifacts
 API, which was returning the artifact correctly at the same moment.
 
+The push itself can also fail. Three times on 24 Nov 2026 GitHub answered the
+force-push with `remote: Internal Server Error` and the ref did not move — no
+Pages build was recorded at any of those three timestamps, while every other
+quarter-hour built normally, and no GitHub incident covered it. The publish
+step therefore retries the push up to four times (5 s, 15 s, 45 s). That is
+safe because the commit already exists locally, so every attempt offers the
+same SHA: a push that landed but reported an error comes back
+`Everything up-to-date`. If all four are rejected the job fails and the
+previous render stays live, which is the behaviour we want.
+
 Published files:
 
 | | |
