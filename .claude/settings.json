@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(npm install --no-audit --no-fund)",
+      "Bash(npm run render)",
+      "Bash(npm run fixtures)",
+      "Bash(npm run luacheck)",
+      "Bash(npm run serve)",
+      "Bash(npm run autorender)",
+      "Bash(npm run dev)",
+      "Bash(node render.js)",
+      "Bash(node render.js *)",
+      "Bash(node tools/*)",
+      "Bash(git status *)",
+      "Bash(git status)",
+      "Bash(git log *)",
+      "Bash(git log)",
+      "Bash(git diff *)",
+      "Bash(git diff)",
+      "Bash(git show *)",
+      "Bash(git ls-files *)",
+      "Bash(git ls-files)",
+      "Bash(git rev-parse *)",
+      "Bash(git blame *)",
+      "Bash(git remote -v)",
+      "Bash(git branch --show-current)",
+      "Bash(git fetch *)",
+      "Bash(git fetch)",
+      "Bash(gh run list)",
+      "Bash(gh run list *)",
+      "Bash(gh run view *)",
+      "Bash(gh workflow run render.yml *)",
+      "Bash(gh workflow run render.yml)",
+      "Bash(npx wrangler tail*)",
+      "Bash(cd cron && npx wrangler tail*)",
+      "Bash(curl -s https://robn4-dashboard-cron.*)"
+    ],
+    "deny": [
+      "Bash(npm ci*)"
+    ]
+  }
+}
